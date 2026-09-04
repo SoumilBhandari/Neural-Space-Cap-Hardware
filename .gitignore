@@ -1,0 +1,15 @@
+# Generated: STLs, rendered previews, marking templates.
+# Regenerate with `make` rather than committing outputs.
+build/*
+!build/.gitkeep
+
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+.DS_Store
+
+# Native CAD working files live on the team drive, not here.
+*.f3d
+*.step.bak

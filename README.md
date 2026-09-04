@@ -1,0 +1,88 @@
+# Neural Space Cap — Hardware
+
+The physical side of the Neural Space Cap: where the electrodes go on a head,
+and the printed parts that hold them there.
+
+Purdue VIP / AAMED. Companion to
+[Neural-Space-Cap-Software](https://github.com/SoumilBhandari/Neural-Space-Cap-Software),
+which handles the firmware and the signal processing.
+
+## What this repository is for
+
+Two problems, both of which cost the team real data last semester.
+
+**Electrodes need to go in the right place, and the same place every time.** A
+sensor taped to a temple with a bandaid sits somewhere slightly different in
+every session, and that movement is indistinguishable from the subject's
+physiology changing. `nsc_fit` turns three tape-measure numbers into a
+printable template that puts every electrode on its International 10-20 site.
+
+**Electrode contact was the largest source of bad data.** The instinctive fix —
+cinching the cap tighter — makes it worse, because it mats the hair under the
+cup instead of parting it. The printed holder here takes the contact load on a
+printed spring, so the pressure is the same at every site however the cap is
+worn.
+
+## Quick start
+
+```bash
+make fit SUBJECT="subject A" CIRC=570 NI=370 PA=350
+make parts
+```
+
+The first writes a marking template, a montage map and a positions CSV into
+`build/`. The second exports STLs for the printed parts. `make test` runs the
+geometry tests, which need no hardware.
+
+See [docs/FITTING.md](docs/FITTING.md) for how to take the three measurements
+and how to use the template on an actual head.
+
+## Layout
+
+```
+fit/nsc_fit/       Head model and 10-20 montage
+  head.py          Ellipsoid solved from three measurements
+  ten_twenty.py    Electrode positions, and the model's own error bar
+  template.py      Printable marking strips and the montage map
+  cli.py           python3 -m nsc_fit
+cad/               Parametric OpenSCAD sources
+  params.scad      Every dimension and tolerance, in one place
+  electrode_holder.scad
+  sensor_puck.scad
+  electronics_pod.scad
+tests/             Geometry tests, no hardware needed
+docs/FITTING.md    How to measure a head and mark it
+build/             Generated STLs, SVGs, CSVs. Git-ignored.
+```
+
+## The parts
+
+**Electrode holder** — a flat spider spring: an annular disc cut by three
+spiral slots, so the hub can travel out of plane while the rim stays sewn to
+the fabric. One flat part, prints with no supports, stiffness set almost
+entirely by `spring_t`. Print in PETG at 0.2 mm layers.
+
+**Sensor puck** — carries the PPG board with a raised light shroud. PPG works
+by measuring light reflected from blood under the skin, so ambient light
+reaching the photodiode adds straight into the signal — a light leak at the
+temple looks exactly like a weak pulse, and no filtering downstream separates
+the two.
+
+**Electronics pod** — two-piece shell for the ESP32, SD card and LiPo, sitting
+low at the back of the head where a hard helmet has clearance and the mass does
+not lever on the neck. The underside is relieved to the head's local radius.
+Two rules it is built around: the USB port and SD slot are reachable without
+opening the shell, because if reflashing means disassembly then nobody
+reflashes; and it uses M2 heat-set inserts, because a printed thread strips out
+after about five open-close cycles and this gets opened constantly.
+
+## Before printing anything
+
+`cad/params.scad` holds the print tolerances. They were written for a
+particular printer and filament and **have not been verified on the team's
+machine** — print a fit-test coupon and adjust `clearance` and `tight_fit`
+before committing to a full set of parts. Board and battery dimensions in the
+same file are from datasheets; measure the actual hardware when it arrives.
+
+The head radius used for the pod's curved underside defaults to 95 mm. Use the
+`c` value from the `nsc_fit` output for the subject the pod is being built for.
