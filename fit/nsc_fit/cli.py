@@ -14,6 +14,7 @@ import csv
 from pathlib import Path
 
 from . import head as head_mod
+from . import scad_export
 from . import template as template_mod
 from . import ten_twenty
 
@@ -55,6 +56,10 @@ def main(argv: list[str] | None = None) -> int:
         writer.writeheader()
         writer.writerows(rows)
 
+    scad_path = scad_export.write_head_params(
+        fitted, sites, Path(__file__).resolve().parents[2] / "cad" / "head_params.scad"
+    )
+
     z_ref, loop_len = ten_twenty.lateral_loop(fitted, sites)
     residual = ten_twenty.fit_residual_mm(fitted, sites)
 
@@ -66,6 +71,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote {path}")
     print(f"wrote {map_path}")
     print(f"wrote {csv_path}")
+    print(f"wrote {scad_path}")
     return 0
 
 
