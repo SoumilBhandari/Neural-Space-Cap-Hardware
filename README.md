@@ -61,11 +61,15 @@ build/             Generated STLs, SVGs, CSVs. Git-ignored.
 ## The parts
 
 **Cap frame** — the part that goes on a head. A closed ring around the skull at
-Fpz/Oz level, braced by two arches, over the top and ear to ear, carrying
-electrode sockets at O1, O2 and Fp1 and a pad for the electronics pod behind
-Oz. Ring plus arches rather than separate front and rear bands, because a band
-joined only at the midline is cantilevered and flexes, and an electrode that
-moves is an electrode whose data cannot be compared between sessions.
+Fpz/Oz level, braced by four arches: over the top, ear to ear, and the frontal
+and parietal chains. It carries eight electrode sockets — Fpz, F3, F4, C3, Cz,
+C4, P3, P4 — a seat for the PPG sensor on the left temple, and a pad for the
+electronics pod behind Oz. The three sockets wired first (F4, Cz, P3) stand
+2.5 mm proud of the rest so they can be found by hand without a drawing.
+
+Ring plus arches rather than loose bands, because a band joined only at the
+midline is cantilevered and flexes, and an electrode that moves is an electrode
+whose data cannot be compared between sessions.
 
 It is generated, not drawn. `nsc_fit` fits the head, writes
 `cad/head_params.scad`, and the frame sweeps its bands along those paths and
