@@ -126,7 +126,10 @@ def build(name: str):
         centre, radius = frame_shot(parts, azimuth=235, elevation=24)
     elif name == "montage":
         parts = [load("cap_frame.stl", "frame")]
-        centre, radius = frame_shot(parts, azimuth=90, elevation=88, margin=1.10)
+        # Camera behind the head rather than in front of it, so the nose ends
+        # up at the top of the picture. EEG montages are always drawn nose-up,
+        # and a flipped one invites someone to read O1 as O2.
+        centre, radius = frame_shot(parts, azimuth=270, elevation=88, margin=1.10)
     elif name == "parts":
         parts = [
             load("electrode_holder.stl", "holder"),
