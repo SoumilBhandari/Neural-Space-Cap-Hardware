@@ -48,8 +48,23 @@ LATERAL_RIGHT = {"Fp2": 0.05, "F8": 0.15, "T8": 0.25, "P8": 0.35, "O2": 0.45}
 # Sites the standard defines as lying between two others.
 INTERPOLATED = {"F3": ("F7", "Fz"), "F4": ("F8", "Fz"), "P3": ("P7", "Pz"), "P4": ("P8", "Pz")}
 
+# The montage this build actually uses: eight scalp electrodes, chosen by the
+# team. Fpz frontal-pole, the frontal and parietal pairs, and the central
+# chain through the vertex.
+MONTAGE_V1 = ("Fpz", "F3", "F4", "C3", "Cz", "C4", "P3", "P4")
+
+# The three wired up first, while the circuit is a single channel. The frame
+# marks these sockets so they can be found without a drawing.
+PHASE_1 = ("F4", "Cz", "P3")
+
 # The smallest montage that supports the alpha-blocking validation test.
 MINIMAL_MONTAGE = ("O1", "O2", "Fp1")
+
+# The PPG sensor sits on the temple, which is not a 10-20 site — it is chosen
+# for blood flow, not for cortex. On the lateral loop it falls between Fp1 at
+# 5% and F7 at 15%, so 11% puts it over the superficial temporal artery while
+# staying on the ring the frame already has.
+TEMPLE_LOOP_FRACTION = 0.11
 
 
 @dataclass(frozen=True)
@@ -157,3 +172,19 @@ def fit_residual_mm(head: Head, sites: dict[str, Site]) -> float:
     z_ref, _ = lateral_loop(head, sites)
     from_loop = head.circumference_arc(z_ref).at_fraction(LATERAL_LEFT["T7"])
     return float(np.linalg.norm(sites["T7"].xyz_mm - from_loop))
+
+
+def temple_site(head: Head, sites: dict[str, Site], side: str = "left") -> Site:
+    """Where the PPG sensor sits, as a Site on the same head model.
+
+    Not an electrode and not part of the 10-20 system: the temple was chosen
+    because the superficial temporal artery runs close to the surface there, so
+    an optical sensor gets a strong pulse without needing to clamp a finger or
+    an earlobe. Returned in the same form as an electrode so the CAD can mount
+    it the same way.
+    """
+    z_ref, _ = lateral_loop(head, sites)
+    loop = head.circumference_arc(z_ref)
+    fraction = TEMPLE_LOOP_FRACTION if side == "left" else 1.0 - TEMPLE_LOOP_FRACTION
+    name = "PPG_L" if side == "left" else "PPG_R"
+    return Site(name, loop.at_fraction(fraction), "circumference", fraction * loop.length_mm())

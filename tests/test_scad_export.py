@@ -24,9 +24,10 @@ def test_every_symbol_the_frame_uses_is_defined(generated):
         "band_lateral",
         "band_sagittal",
         "band_coronal",
-        "mount_O1",
-        "mount_O2",
-        "mount_Fp1",
+        "band_frontal",
+        "band_parietal",
+        "mounts",
+        "ppg_mount",
         "pod_anchor",
     ):
         assert re.search(rf"^{symbol} = ", text, re.M), f"{symbol} missing"
@@ -42,17 +43,29 @@ def test_the_lateral_ring_closes(generated):
 def test_band_points_lie_on_the_head(generated):
     fitted, _, text = generated
     axes = np.array([fitted.a_mm, fitted.b_mm, fitted.c_mm])
-    for band in ("band_lateral", "band_sagittal", "band_coronal"):
+    for band in ("band_lateral", "band_sagittal", "band_coronal", "band_frontal", "band_parietal"):
         for point in _points(text, band):
             assert np.sum((point / axes) ** 2) == pytest.approx(1.0, abs=1e-3)
+
+
+def test_every_montage_site_gets_a_mount(generated):
+    """All eight electrodes the team specified must reach the CAD."""
+    _, _, text = generated
+    assert set(_mounts(text)) == set(ten_twenty.MONTAGE_V1)
+
+
+def test_phase_one_sockets_are_flagged(generated):
+    """F4, Cz and P3 are wired first and get the index nub; nothing else does."""
+    _, _, text = generated
+    flagged = {name for name, (_, _, flag) in _mounts(text).items() if flag == 1}
+    assert flagged == set(ten_twenty.PHASE_1)
 
 
 def test_mount_rotations_point_outward(generated):
     """rotate([0, elevation, azimuth]) must map +Z onto the outward normal."""
     fitted, sites, text = generated
     axes = np.array([fitted.a_mm, fitted.b_mm, fitted.c_mm])
-    for name in ("O1", "O2", "Fp1"):
-        position, rotation = _mount(text, f"mount_{name}")
+    for name, (position, rotation, _) in _mounts(text).items():
         elevation, azimuth = np.radians(rotation[1]), np.radians(rotation[2])
         rotated = np.array(
             [
@@ -67,6 +80,15 @@ def test_mount_rotations_point_outward(generated):
         assert position == pytest.approx(sites[name].xyz_mm, abs=1e-3)
 
 
+def test_ppg_seat_sits_on_the_head(generated):
+    """The temple seat must land on the surface, like every other mount."""
+    fitted, _, text = generated
+    axes = np.array([fitted.a_mm, fitted.b_mm, fitted.c_mm])
+    position, _ = _mount(text, "ppg_mount")
+    assert np.sum((position / axes) ** 2) == pytest.approx(1.0, abs=1e-3)
+    assert position[0] < 0, "the temple seat should be on the subject's left"
+
+
 def _points(text: str, name: str) -> np.ndarray:
     triples = _triples(text, name)
     return np.array([[float(v) for v in t.split(",")] for t in triples])
@@ -78,6 +100,20 @@ def _mount(text: str, name: str) -> tuple[np.ndarray, np.ndarray]:
         np.array([float(v) for v in position.split(",")]),
         np.array([float(v) for v in rotation.split(",")]),
     )
+
+
+def _mounts(text: str) -> dict[str, tuple[np.ndarray, np.ndarray, int]]:
+    """Parse the generated `mounts` list into {name: (position, rotation, flag)}."""
+    body = re.search(r"^mounts = \[(.*?)^\];$", text, re.M | re.S).group(1)
+    out = {}
+    for row in re.findall(r'\["(\w+)", \[([^\]]+)\], \[([^\]]+)\], (\d)\]', body):
+        name, position, rotation, flag = row
+        out[name] = (
+            np.array([float(v) for v in position.split(",")]),
+            np.array([float(v) for v in rotation.split(",")]),
+            int(flag),
+        )
+    return out
 
 
 def _triples(text: str, name: str) -> list[str]:

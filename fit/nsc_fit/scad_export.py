@@ -19,7 +19,15 @@ from pathlib import Path
 import numpy as np
 
 from .head import Head
-from .ten_twenty import LATERAL_LEFT, MIDLINE, Site, lateral_loop
+from .ten_twenty import (
+    LATERAL_LEFT,
+    MIDLINE,
+    MONTAGE_V1,
+    PHASE_1,
+    Site,
+    lateral_loop,
+    temple_site,
+)
 
 # Points per band. 48 is smooth at head scale without making OpenSCAD crawl
 # through several thousand hull() operations.
@@ -40,12 +48,18 @@ def write_head_params(head: Head, sites: dict[str, Site], path: str | Path) -> P
     # be cantilevered off a single joint at the midline and would flex; a
     # closed loop braced by two arches is stiff, and is how EEG caps are built.
     bands = {
-        # The ring, carrying Fp1, Fp2, T7, T8, O1, Oz and O2.
+        # The ring, carrying Fpz, the temples, T7, T8, O1, Oz and O2.
         "lateral": _sample(loop, 0.0, 1.0, closed=True),
         # Over the top, front to back.
         "sagittal": _sample(sagittal, MIDLINE["Fpz"], MIDLINE["Oz"]),
-        # Ear to ear over the vertex.
+        # Ear to ear over the vertex, carrying C3, Cz and C4.
         "coronal": _sample(coronal, LATERAL_LEFT["T7"], 1.0 - LATERAL_LEFT["T7"]),
+        # Two more arches, because F3, F4, P3 and P4 sit on neither the ring
+        # nor either existing arch. These are the standard frontal and parietal
+        # chains, and both land on the ring at their ends, so they brace it
+        # rather than hanging off it.
+        "frontal": _surface_path(head, [sites[n].xyz_mm for n in ("F7", "F3", "Fz", "F4", "F8")]),
+        "parietal": _surface_path(head, [sites[n].xyz_mm for n in ("P7", "P3", "Pz", "P4", "P8")]),
     }
 
     lines = [
@@ -62,15 +76,28 @@ def write_head_params(head: Head, sites: dict[str, Site], path: str | Path) -> P
         lines.append(f"band_{name} = {_vector_list(points)};")
     lines.append("")
 
-    # Electrode mounts: position plus the rotations that align +Z with the
-    # outward surface normal, so a cylinder stands up off the head.
-    lines.append("// [position, [rot_x, rot_y, rot_z]] for each electrode mount.")
-    for name in ("O1", "O2", "Fp1"):
+    # Electrode mounts, as one list so adding or dropping a site needs no edit
+    # to the CAD: [name, position, rotation, phase_one].
+    # The rotation aligns +Z with the outward surface normal, so every socket
+    # stands straight out of the skull instead of being eyeballed.
+    lines.append("// [name, position, [rot_x, rot_y, rot_z], phase_one]")
+    entries = []
+    for name in MONTAGE_V1:
         point = sites[name].xyz_mm
         elevation, azimuth = _normal_rotation(head, point)
-        lines.append(
-            f"mount_{name} = [{_vector(point)}, [0, {elevation:.3f}, {azimuth:.3f}]];"
+        flag = 1 if name in PHASE_1 else 0
+        entries.append(
+            f'["{name}", {_vector(point)}, [0, {elevation:.3f}, {azimuth:.3f}], {flag}]'
         )
+    lines.append("mounts = [\n    " + ",\n    ".join(entries) + "\n];")
+    lines.append("")
+
+    # The PPG sensor seat on the temple.
+    temple = temple_site(head, sites)
+    elevation, azimuth = _normal_rotation(head, temple.xyz_mm)
+    lines.append(
+        f"ppg_mount = [{_vector(temple.xyz_mm)}, [0, {elevation:.3f}, {azimuth:.3f}]];"
+    )
 
     # The pod sits behind and below Oz, on the flat of the occiput.
     pod_point = loop.at_fraction(0.5)
@@ -93,6 +120,36 @@ def _sample(arc, start_fraction: float, end_fraction: float, closed: bool = Fals
     if closed:
         points[-1] = points[0]
     return points
+
+
+def _surface_path(head: Head, control_points: list, steps: int = 14) -> np.ndarray:
+    """A smooth path across the head through a list of points on its surface.
+
+    The frontal and parietal chains are not planar ellipses — F3 and P3 are
+    defined as lying between two other sites, so the chain through them is a
+    curve with no closed form. Interpolating in the plane and projecting
+    afterwards would sag the path inside the skull between control points.
+
+    Instead the points are mapped to a unit sphere, where the shortest path
+    between two of them is a great-circle arc with an exact formula, and then
+    mapped back. Every sampled point lands on the head surface by construction.
+    """
+    axes = np.array([head.a_mm, head.b_mm, head.c_mm])
+    units = [p / axes for p in control_points]
+    units = [u / np.linalg.norm(u) for u in units]
+
+    out: list[np.ndarray] = []
+    for i in range(len(units) - 1):
+        a, b = units[i], units[i + 1]
+        omega = math.acos(float(np.clip(np.dot(a, b), -1.0, 1.0)))
+        last = i == len(units) - 2
+        for t in np.linspace(0.0, 1.0, steps, endpoint=last):
+            if omega < 1e-9:
+                point = a
+            else:
+                point = (math.sin((1 - t) * omega) * a + math.sin(t * omega) * b) / math.sin(omega)
+            out.append(point * axes)
+    return np.array(out)
 
 
 def _normal_rotation(head: Head, point: np.ndarray) -> tuple[float, float]:

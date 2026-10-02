@@ -47,6 +47,41 @@ ellipsoid at a point is just the gradient, and `nsc_fit` converts it into the
 two rotations that stand an OpenSCAD cylinder up along it, so every electrode
 socket points straight out of the skull rather than being eyeballed.
 
+## The montage is the team's, not the textbook's
+
+The frame carries the eight sites the team specified: Fpz, F3, F4, C3, Cz, C4,
+P3 and P4. Three of those — F4, Cz and P3 — are wired first while the circuit
+is a single channel, and their sockets stand 2.5 mm proud of the others so they
+can be found by hand without a drawing.
+
+Carrying them needed two more arches. F3, F4, P3 and P4 sit on neither the ring
+nor either original arch, so the frame gained the standard frontal
+(F7-F3-Fz-F4-F8) and parietal (P7-P3-Pz-P4-P8) chains. Both land on the ring at
+their ends, so they brace it rather than hanging off it.
+
+Those two chains are not planar ellipses — F3 and P3 are defined as lying
+between two other sites, so the curve through them has no closed form.
+Interpolating in a plane and projecting afterwards would sag the path inside
+the skull between control points, so the path is interpolated on a unit sphere,
+where the shortest route between two points is a great-circle arc with an exact
+formula, and mapped back onto the ellipsoid afterwards.
+
+## The phase-one marker moved twice
+
+First attempt: a sphere on the side of the socket boss, at boss_d/2 - 1.5.
+That is inside the boss radius, so it rendered, existed in the mesh, and was
+completely invisible and unfeelable.
+
+Second attempt: the same sphere at boss_d/2 + 0.5, standing proud. That works
+at some sockets and not others, because the nub points along whatever direction
+the socket's local frame happens to face, and at Fpz and Cz that is straight
+into a band.
+
+What is there now: a collar extending along the socket axis, away from the
+skull, where no band ever reaches. `tests/test_frame_geometry.py` measures
+axial reach to confirm it, because a radial measurement cannot tell a collar
+from the band the socket is sitting on.
+
 ## Splitting the frame is not solved
 
 The frame is 172 x 202 x 128 mm, which fits a 220 mm bed but not every printer,
