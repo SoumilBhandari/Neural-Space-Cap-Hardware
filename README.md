@@ -114,3 +114,18 @@ same file are from datasheets; measure the actual hardware when it arrives.
 
 The head radius used for the pod's curved underside defaults to 95 mm. Use the
 `c` value from the `nsc_fit` output for the subject the pod is being built for.
+
+## Renders
+
+```bash
+make renders        # four stills: hero, frame, montage, parts
+make animation      # turntable and fit clips
+```
+
+Purdue old gold on a dark cove, rendered in Cycles. `THEME=light` swaps to a
+light background for print, `SAMPLES=256` for a final pass.
+
+These are for the poster, the report and the deck. The OpenSCAD previews stay —
+every geometry test in `tests/` renders through OpenSCAD, and that is what
+caught the index nub buried inside its own boss.
+

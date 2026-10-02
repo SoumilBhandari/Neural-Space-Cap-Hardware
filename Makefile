@@ -7,9 +7,10 @@ NI      ?= 370
 PA      ?= 350
 
 SCAD    = openscad
+BLENDER = /Applications/Blender.app/Contents/MacOS/Blender
 BUILD   = build
 
-.PHONY: all fit parts headform preview test clean
+.PHONY: all fit parts headform preview renders animation test clean
 
 all: fit parts
 
@@ -58,4 +59,30 @@ test:
 	python3 -m pytest -q
 
 clean:
-	rm -rf $(BUILD)/*.stl $(BUILD)/*.svg $(BUILD)/*.png $(BUILD)/*.csv
+	rm -rf $(BUILD)/*.stl $(BUILD)/*.svg $(BUILD)/*.png $(BUILD)/*.csv $(BUILD)/renders
+
+## Studio renders for the poster, the report and the deck. OpenSCAD's own
+## previews are for checking geometry while working; these are for showing
+## people. Needs Blender:  brew install --cask blender
+##
+##   make renders                      four stills
+##   make animation                    turntable + fit clips
+##   make renders SAMPLES=256          final quality
+##   make renders THEME=light          light background instead of dark
+SAMPLES      ?= 96
+ANIM_SAMPLES ?= 48
+FRAMES       ?= 96
+THEME        ?= dark
+
+RENDER = $(BLENDER) --background --python render/blender_render.py --
+
+renders: parts headform
+	$(RENDER) --mode stills --samples $(SAMPLES) --theme $(THEME)
+	@echo "stills in $(BUILD)/renders/"
+
+## One animation per Blender process: two FFmpeg outputs from a single session
+## leaves the second file an empty container.
+animation: parts headform
+	$(RENDER) --mode turntable --anim-samples $(ANIM_SAMPLES) --frames $(FRAMES) --theme $(THEME)
+	$(RENDER) --mode fit --anim-samples $(ANIM_SAMPLES) --theme $(THEME)
+	@echo "animations in $(BUILD)/renders/"
