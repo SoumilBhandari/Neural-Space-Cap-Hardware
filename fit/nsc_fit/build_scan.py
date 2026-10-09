@@ -16,6 +16,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import numpy as np
+
 from . import head as head_mod
 from . import scad_export, scanned, stlclean, ten_twenty
 
@@ -68,9 +70,19 @@ def main(argv: list[str] | None = None) -> int:
     noise = {k: v for k, v in report.items() if k not in ("kept", "removed") and v}
     if noise:
         print("  cleaned: " + ", ".join(f"{v} {k.replace('_', ' ')}" for k, v in noise.items()))
-    for bed, name in ((220, "220 bed"), (250, "250 bed"), (256, "256 bed")):
+    # Solid volume by the divergence theorem, so the print estimate is the
+    # part's own material rather than its bounding box.
+    v = tris
+    volume = abs(float(np.sum(np.einsum("ij,ij->i", v[:, 0], np.cross(v[:, 1], v[:, 2]))))) / 6.0
+    print(f"  solid volume {volume / 1000:.0f} cm3  (~{volume / 1000 * 1.27:.0f} g PETG at 100%)")
+
+    for bed, name in ((220, "220 x 220"), (256, "256 x 256"), (325, "Bambu H2D 325 x 320")):
         room = bed - longest
-        print(f"  {name}: {'fits, %.0f mm spare' % room if room >= 10 else 'too tight' if room >= 0 else 'DOES NOT FIT'}")
+        verdict = (
+            f"fits, {room:.0f} mm spare" if room >= 10
+            else "too tight" if room >= 0 else "does not fit"
+        )
+        print(f"  {name}: {verdict}")
     return 0
 
 

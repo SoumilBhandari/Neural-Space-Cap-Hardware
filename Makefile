@@ -136,7 +136,10 @@ scan:
 		--tape $(CIRC) $(NI) $(PA) --out ../$(BUILD)/cap_frame.stl
 
 ## A size run on hair allowance — the one quantity nothing can predict.
-SCAN_SIZES ?= 600 620 640 660
+## Spread chosen by how far hair might compress, not by bed size — the H2D
+## takes any of these with room to spare. Her scan carries 36 mm of loft, so
+## this run spans flattening it by about 80% down to about 27%.
+SCAN_SIZES ?= 620 660 700 740
 
 scan-sizes:
 ## Written to its own directory: build/sizes/ also holds the older
