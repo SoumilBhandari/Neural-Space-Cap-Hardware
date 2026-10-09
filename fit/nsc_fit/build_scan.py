@@ -58,15 +58,16 @@ def main(argv: list[str] | None = None) -> int:
         check=True, capture_output=True,
     )
 
-    shells, removed = stlclean.largest_shell(args.out)
+    report = stlclean.clean(args.out)
     tris, _ = stlclean._read(args.out)
     extent = tris.reshape(-1, 3).max(0) - tris.reshape(-1, 3).min(0)
     longest = max(extent[0], extent[1])
 
     print(f"{args.out.name}: {extent[0]:.0f} x {extent[1]:.0f} x {extent[2]:.0f} mm")
     print(f"  hair allowance {(args.circumference - args.tape[0]) / 6.283:.1f} mm of thickness")
-    if removed:
-        print(f"  dropped {removed} stray triangles from {shells - 1} CSG specks")
+    noise = {k: v for k, v in report.items() if k not in ("kept", "removed") and v}
+    if noise:
+        print("  cleaned: " + ", ".join(f"{v} {k.replace('_', ' ')}" for k, v in noise.items()))
     for bed, name in ((220, "220 bed"), (250, "250 bed"), (256, "256 bed")):
         room = bed - longest
         print(f"  {name}: {'fits, %.0f mm spare' % room if room >= 10 else 'too tight' if room >= 0 else 'DOES NOT FIT'}")

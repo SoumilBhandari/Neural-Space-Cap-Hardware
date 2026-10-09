@@ -162,10 +162,10 @@ def build(name: str):
         centre, radius = frame_shot(parts, azimuth=62, elevation=36, margin=1.12)
     elif name == "sizes":
         import glob
-        files = sorted(glob.glob(str(BUILD / "sizes" / "frame_*.stl")))
+        files = sorted(glob.glob(str(BUILD / "scan_sizes" / "frame_*.stl")))
         if not files:
-            raise SystemExit("no size run found — run `make sizes` first")
-        parts = [load(Path(f).name, "frame", subdir="sizes") for f in files]
+            raise SystemExit("no size run found — run `make scan-sizes` first")
+        parts = [load(Path(f).name, "frame", subdir="scan_sizes") for f in files]
         arrange_in_row(parts, gap=0.020)
         centre, radius = frame_shot(parts, azimuth=70, elevation=26, margin=1.08)
     elif name == "fit":
