@@ -37,6 +37,10 @@ include <head_params.scad>
 
 part = "preview";   // "frame", "headform", "preview"
 
+// Printed into the pod pad. Four frames a few percent apart are impossible to
+// tell apart by eye once they are off the print bed.
+size_label = "";
+
 band_d      = 11.0;   // swept diameter of a band
 liner_gap   = 2.5;    // clearance for the fabric liner and hair
 trim_z      = 8.0;    // nothing hangs below this height above the landmarks
@@ -109,6 +113,23 @@ module pod_pad() {
                 offset(4) square([pod_pad_l - 8, pod_pad_w - 8], center = true);
 }
 
+// Raised lettering on the outside of the pod pad.
+//
+// The pad is extruded from -pod_pad_t/2 through pod_pad_t + 2, so its outer
+// face sits at +pod_pad_t/2 + 2. Starting the text at pod_pad_t/2 — the
+// obvious-looking number — buries it two millimetres inside solid plastic,
+// where it renders, exports, and cannot be seen or felt.
+module size_badge() {
+    translate(pod_anchor[0]) rotate(pod_anchor[1])
+        translate([0, -pod_pad_w / 2 + 6, pod_pad_t / 2 + 2])
+            // The pad's local x runs along the band, so unrotated text reads
+            // sideways to anyone holding the frame the right way up.
+            rotate([0, 0, 90])
+                linear_extrude(1.2)
+                    text(size_label, size = 6.5, halign = "center", valign = "center",
+                         font = "Helvetica:style=Bold");
+}
+
 module pod_pad_holes() {
     translate(pod_anchor[0]) rotate(pod_anchor[1])
         for (x = [-1, 1], y = [-1, 1])
@@ -127,6 +148,7 @@ module frame_solid() {
             for (m = mounts) electrode_socket(m);
             ppg_seat();
             pod_pad();
+            if (size_label != "") size_badge();
         }
 
         // Hollow the inside to the head, plus room for the liner and hair.

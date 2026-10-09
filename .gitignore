@@ -13,3 +13,6 @@ __pycache__/
 # Native CAD working files live on the team drive, not here.
 *.f3d
 *.step.bak
+
+# LiDAR scans of real people. Identifiable biometric data — never in a public repo.
+scan/

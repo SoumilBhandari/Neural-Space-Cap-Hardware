@@ -115,6 +115,22 @@ same file are from datasheets; measure the actual hardware when it arrives.
 The head radius used for the pod's curved underside defaults to 95 mm. Use the
 `c` value from the `nsc_fit` output for the subject the pod is being built for.
 
+## Printing a size run
+
+```bash
+make sizes
+```
+
+Four frames at +4/+12/+20/+28% on the base measurements, each with its
+circumference in millimetres raised on the pod pad so they stay tellable apart
+once they are off the bed. Print all four, keep whichever sits right.
+
+This is deliberate, not indecision. A tape on the scalp reads 575 mm; a convex
+hull round the LiDAR scan at ring height reads about 790 mm. The difference is
+hair, and how far hair compresses under a cap is the number that decides fit.
+Nothing in the scan predicts it, so measuring harder will not help — printing
+four and trying them will.
+
 ## Renders
 
 ```bash

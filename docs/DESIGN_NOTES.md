@@ -82,6 +82,33 @@ skull, where no band ever reaches. `tests/test_frame_geometry.py` measures
 axial reach to confirm it, because a radial measurement cannot tell a collar
 from the band the socket is sitting on.
 
+## The LiDAR scan settled the swapped measurements
+
+The tape numbers recorded in the team chat were 575 mm circumference, 340 mm
+front-to-back and 350 mm ear-to-ear. Fitted as written they produce a head
+wider across than it is long, which is unusual, and the suspicion was that the
+two arc measurements had been swapped.
+
+A LiDAR scan of the same head answers it. Principal-component analysis of the
+cranium gives a long axis running front to back with a 1.14 ratio over the
+short axis — longer than it is wide, the normal proportion. The measurements
+were swapped. The fit uses 350 front-to-back and 340 ear-to-ear.
+
+## Hair makes a scan a poor source of head size
+
+The same scan is almost useless for sizing. A convex hull taken round the head
+at ring height — which is what a tape measure actually follows, since a tape
+bridges every dip rather than tracking into it — reads about 790 mm, against
+575 mm measured by tape on the scalp. The difference is hair, and it is
+200 mm of circumference, or three centimetres of radius everywhere.
+
+How far hair compresses under a cap is not something the scan can tell us, and
+it is the only number that decides whether the frame fits. So the frame ships
+as a size run rather than a single part: four sizes a fixed percentage apart,
+printed together, and whichever one sits right is the one that gets used. That
+is cheaper than one more round of measuring, and it is the honest response to
+a quantity nobody can predict.
+
 ## Splitting the frame is not solved
 
 The frame is 172 x 202 x 128 mm, which fits a 220 mm bed but not every printer,

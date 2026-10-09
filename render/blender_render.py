@@ -81,6 +81,14 @@ def main() -> None:
             render_still(OUT / f"{name}.png")
             print(f"rendered {name}")
 
+    if args.mode == "sizes":
+        reset_scene()
+        configure_render(args.samples)
+        objects, centre, radius = build("sizes")
+        studio(radius)
+        render_still(OUT / "sizes.png")
+        print("rendered sizes")
+
     if args.mode == "turntable":
         reset_scene()
         configure_render(args.anim_samples)
@@ -104,7 +112,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="blender_render")
     # One animation per invocation. Rendering two FFmpeg outputs from a single
     # Blender session leaves the second file an empty container.
-    parser.add_argument("--mode", default="stills", choices=("stills", "turntable", "fit"))
+    parser.add_argument("--mode", default="stills", choices=("stills", "turntable", "fit", "sizes"))
     parser.add_argument("--theme", default="dark", choices=tuple(THEMES))
     parser.add_argument("--samples", type=int, default=96)
     parser.add_argument("--anim-samples", type=int, default=48)
@@ -139,6 +147,14 @@ def build(name: str):
         ]
         arrange_in_row(parts, gap=0.012)
         centre, radius = frame_shot(parts, azimuth=62, elevation=36, margin=1.12)
+    elif name == "sizes":
+        import glob
+        files = sorted(glob.glob(str(BUILD / "sizes" / "frame_*.stl")))
+        if not files:
+            raise SystemExit("no size run found — run `make sizes` first")
+        parts = [load(Path(f).name, "frame", subdir="sizes") for f in files]
+        arrange_in_row(parts, gap=0.020)
+        centre, radius = frame_shot(parts, azimuth=70, elevation=26, margin=1.08)
     elif name == "fit":
         cap, head = load("cap_frame.stl", "frame"), load("head_form.stl", "head")
         parts = [cap, head]
@@ -239,9 +255,9 @@ def fcurves_of(obj) -> list:
 # --- Scene construction -----------------------------------------------------
 
 
-def load(filename: str, material: str):
+def load(filename: str, material: str, subdir: str = ""):
     """Import one STL, scale it to metres, and give it a material."""
-    path = BUILD / filename
+    path = (BUILD / subdir / filename) if subdir else (BUILD / filename)
     if not path.exists():
         raise SystemExit(f"missing {path} — run `make parts headform` first")
 

@@ -56,15 +56,20 @@ class Measurements:
     preauricular_mm: float
 
     def __post_init__(self) -> None:
-        # Plausible ranges for a human head, in millimetres. These are wide
-        # enough to cover any team member and narrow enough to catch the
-        # mistake that actually happens: typing 57 for 570, or handing the
-        # tool inches. A bad measurement caught here costs a re-measure; one
-        # caught later costs a printed template and a cut cap.
+        # Plausible ranges in millimetres. Wide enough to cover any team
+        # member and narrow enough to catch the mistake that actually happens:
+        # typing 57 for 570, or handing the tool inches.
+        #
+        # The upper bounds are well above any skull on purpose. These
+        # measurements also drive frames sized to sit over hair, and a convex
+        # hull round the LiDAR scan at ring height read about 790 mm against
+        # 575 mm measured by tape on the scalp. A cap that clears that much
+        # hair is a legitimate input, so the guard has to admit it while still
+        # rejecting a decimal-point slip.
         for name, value, lo, hi in (
-            ("circumference_mm", self.circumference_mm, 400.0, 700.0),
-            ("nasion_inion_mm", self.nasion_inion_mm, 250.0, 500.0),
-            ("preauricular_mm", self.preauricular_mm, 250.0, 500.0),
+            ("circumference_mm", self.circumference_mm, 400.0, 850.0),
+            ("nasion_inion_mm", self.nasion_inion_mm, 250.0, 560.0),
+            ("preauricular_mm", self.preauricular_mm, 250.0, 560.0),
         ):
             if not lo <= value <= hi:
                 raise ValueError(
