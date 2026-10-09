@@ -10,7 +10,7 @@ SCAD    = openscad
 BLENDER = /Applications/Blender.app/Contents/MacOS/Blender
 BUILD   = build
 
-.PHONY: all fit parts headform preview renders animation sizes scan test clean
+.PHONY: all fit parts headform preview renders animation sizes scan scan-sizes test clean
 
 all: fit parts
 
@@ -119,23 +119,30 @@ sizes: headform
 
 ## Fit the frame to a LiDAR scan instead of to an ellipsoid.
 ##
-## The ellipsoid is a generic head of the right size; this is her head. Band
-## paths and mounts are read off the scanned surface, and the frame is
-## hollowed against it, so the inside of the print follows her contour —
-## including the side where her hair is thicker.
+## Her contour comes from the scan; SCAN_CIRC sets only how much hair the
+## frame expects to flatten. A scan measures hair uncompressed — this one
+## reads about 800 mm around the ring against 575 mm of tape on her scalp —
+## so building to the raw figure gives a frame nobody can print.
 ##
-## SCAN_GAP is clearance over hair. Raise it if the print sits proud, lower it
-## if it will not go on.
-SCAN     ?= scan/10_9_2026.obj
-SCAN_GAP ?= 4
+## None of the usable sizes fit a 220 mm bed. 250 mm or larger, or tie the
+## hair back and rescan. See docs/DESIGN_NOTES.md.
+SCAN      ?= scan/10_9_2026.obj
+SCAN_GAP  ?= 4
+SCAN_CIRC ?= 640
 
 scan:
-	cd fit && python3 -c "from nsc_fit import head, ten_twenty, scanned, scad_export; \
-	  sc = scanned.load('../$(SCAN)'); \
-	  sc.write_stl('../$(BUILD)/scan_head.stl', $(SCAN_GAP)); \
-	  sc.write_stl('../$(BUILD)/head_form.stl', 0.0); \
-	  h = head.fit(head.Measurements($(CIRC), $(NI), $(PA))); \
-	  scad_export.write_scan_params(sc, h, ten_twenty.montage(h), '../cad/head_params.scad', \
-	      stl_name='../$(BUILD)/scan_head.stl', standoff_mm=$(SCAN_GAP))"
-	$(SCAD) -D 'part="frame"' -o $(BUILD)/cap_frame.stl cad/cap_frame.scad
-	@echo "scan-fitted frame in $(BUILD)/cap_frame.stl"
+	cd fit && python3 -m nsc_fit.build_scan --scan ../$(SCAN) \
+		--circumference $(SCAN_CIRC) --gap $(SCAN_GAP) \
+		--tape $(CIRC) $(NI) $(PA) --out ../$(BUILD)/cap_frame.stl
+
+## A size run on hair allowance — the one quantity nothing can predict.
+SCAN_SIZES ?= 600 620 640 660
+
+scan-sizes:
+	@mkdir -p $(BUILD)/sizes
+	@for c in $(SCAN_SIZES); do \
+	  (cd fit && python3 -m nsc_fit.build_scan --scan ../$(SCAN) --circumference $$c \
+	      --gap $(SCAN_GAP) --tape $(CIRC) $(NI) $(PA) \
+	      --out ../$(BUILD)/sizes/frame_$$c.stl) || exit 1; \
+	done
+	@echo "size run in $(BUILD)/sizes/"

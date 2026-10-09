@@ -55,6 +55,18 @@ pod_pad_l   = 46;
 pod_pad_w   = 34;
 pod_pad_t   = 5;
 
+// How far the pad sinks into the bands, and how far it stands out past them.
+// Named explicitly because three things have to agree about where its outer
+// face is — the pad, the insert holes and the size badge — and the badge has
+// already been written into the middle of the pad once by assuming.
+//
+// Keeping it shallow matters twice over: the pad is the backmost feature on
+// the whole frame, so its proudness sets the longest dimension and decides
+// which printers can take the part, and every millimetre it stands off the
+// skull is lever arm for the pod's mass against the back of her neck.
+pod_pad_sink  = 4.0;
+pod_pad_proud = 1.5;
+
 // The volume the frame is hollowed against.
 //
 // With a scan, this is her actual surface, already inflated by the liner gap
@@ -120,8 +132,8 @@ module ppg_bore() {
 
 module pod_pad() {
     translate(pod_anchor[0]) rotate(pod_anchor[1])
-        translate([0, 0, -pod_pad_t / 2])
-            linear_extrude(pod_pad_t + 2)
+        translate([0, 0, -pod_pad_sink])
+            linear_extrude(pod_pad_sink + pod_pad_proud)
                 offset(4) square([pod_pad_l - 8, pod_pad_w - 8], center = true);
 }
 
@@ -133,7 +145,7 @@ module pod_pad() {
 // where it renders, exports, and cannot be seen or felt.
 module size_badge() {
     translate(pod_anchor[0]) rotate(pod_anchor[1])
-        translate([0, -pod_pad_w / 2 + 6, pod_pad_t / 2 + 2])
+        translate([0, -pod_pad_w / 2 + 6, pod_pad_proud])
             // The pad's local x runs along the band, so unrotated text reads
             // sideways to anyone holding the frame the right way up.
             rotate([0, 0, 90])
@@ -145,8 +157,8 @@ module size_badge() {
 module pod_pad_holes() {
     translate(pod_anchor[0]) rotate(pod_anchor[1])
         for (x = [-1, 1], y = [-1, 1])
-            translate([x * (pod_pad_l / 2 - 6), y * (pod_pad_w / 2 - 6), -pod_pad_t])
-                cylinder(d = insert_d, h = pod_pad_t + insert_h + 2);
+            translate([x * (pod_pad_l / 2 - 6), y * (pod_pad_w / 2 - 6), -pod_pad_sink - 2])
+                cylinder(d = insert_d, h = pod_pad_sink + pod_pad_proud + insert_h + 2);
 }
 
 module frame_solid() {

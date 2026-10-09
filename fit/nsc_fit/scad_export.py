@@ -323,9 +323,20 @@ def _scan_normal_rotation(scan, point: np.ndarray) -> tuple[float, float]:
     )
     p_phi = scan.surface(theta, phi + step) - scan.surface(theta, phi - step)
     normal = np.cross(p_phi, p_theta)
-    if np.dot(normal, d) < 0:
-        normal = -normal
-    normal = normal / np.linalg.norm(normal)
+
+    # At the crown theta is zero, every azimuth meets, and the phi derivative
+    # vanishes — the cross product is the zero vector and normalising it gives
+    # NaN. OpenSCAD does not complain about rotate([0, nan, nan]); it silently
+    # produces garbage, and Cz is exactly where four bands meet, so the garbage
+    # splits the frame into pieces. Fall back to the radial direction, which at
+    # the pole is the correct normal anyway.
+    length = float(np.linalg.norm(normal))
+    if not np.isfinite(length) or length < 1e-9:
+        normal = d
+    else:
+        normal = normal / length
+        if np.dot(normal, d) < 0:
+            normal = -normal
 
     elevation = math.degrees(math.acos(float(np.clip(normal[2], -1.0, 1.0))))
     azimuth = math.degrees(math.atan2(float(normal[1]), float(normal[0])))

@@ -151,6 +151,50 @@ that is the right trade, but it does mean the repaired surface is no longer
 purely measured, and it is why `repair_dropout` is a flag rather than
 something done silently.
 
+## A scan measures hair, and hair is not what a cap sits on
+
+The LiDAR reads about 800 mm around the ring line. Tape on her scalp reads
+575 mm. That is 36 mm of loft everywhere — a scanner recording dark hair where
+it lies, uncompressed, which is not the surface a cap rests on because a cap
+presses through it.
+
+Built to the raw figure the frame came out 282 mm across: too big for any
+hobby printer, and it would sit on her head like a lampshade.
+`ScannedHead.scaled_to` keeps her contour — every bump, the slope of her
+occiput, all of it still hers — and sets only how much hair the frame expects
+to flatten.
+
+How much that is, nobody can predict, so `make scan-sizes` prints a run.
+Measured sizes, including bands and sockets:
+
+| ring circumference | hair allowance | frame          | 220 bed | 250 bed |
+|--------------------|----------------|----------------|---------|---------|
+| 600 mm             |  4.0 mm        | 202 x 217 mm   | no room | yes     |
+| 620 mm             |  7.2 mm        | 208 x 223 mm   | no      | yes     |
+| 640 mm (default)   | 10.3 mm        | 214 x 229 mm   | no      | yes     |
+| 660 mm             | 13.5 mm        | 220 x 236 mm   | no      | yes     |
+
+**Nothing that clears her hair fits a 220 mm bed.** A 250 mm machine takes any
+of them. The alternative is to tie the hair back or put a thin swim cap under
+it and rescan, which drops the frame to roughly 190 mm and prints anywhere.
+
+## Two bugs the size sweep exposed
+
+**A NaN that OpenSCAD accepted.** Surface normals are estimated by finite
+differences, and at the crown the azimuthal derivative vanishes, so the cross
+product is the zero vector and normalising it gives NaN. `rotate([0, nan,
+nan])` does not error — it silently produces garbage, and Cz is exactly where
+four bands meet, so the garbage split the frame. It fell back to the radial
+direction, which at the pole is the correct normal anyway, and the build now
+refuses to run if any generated parameter is NaN.
+
+**Specks that made every connectivity check lie.** CSG where the pod pad met
+the ring left four loose shells of a few triangles each, none bigger than a
+quarter of a millimetre. A slicer ignores them, but they made the part report
+as five pieces and buried the only question that matters — whether the frame
+itself is in one piece. Sinking the pad removed the cause, and
+`nsc_fit.stlclean` drops any that remain.
+
 ## Splitting the frame is not solved
 
 The frame is 172 x 202 x 128 mm, which fits a 220 mm bed but not every printer,

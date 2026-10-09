@@ -120,3 +120,14 @@ def _triples(text: str, name: str) -> list[str]:
     """The innermost bracketed groups of an OpenSCAD vector assignment."""
     body = re.search(rf"^{name} = (\[.*\]);$", text, re.M).group(1)
     return re.findall(r"\[([^\[\]]+)\]", body.replace(" ", ""))
+
+
+def test_generated_params_contain_no_nan(generated):
+    """A NaN rotation is worse than a crash: OpenSCAD accepts it silently.
+
+    rotate([0, nan, nan]) does not error — it produces garbage geometry. At Cz,
+    where four bands meet, that garbage split the frame into separate pieces,
+    and nothing in the build said so.
+    """
+    _, _, text = generated
+    assert "nan" not in text.lower(), "generated OpenSCAD contains NaN"

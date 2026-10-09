@@ -172,6 +172,39 @@ class ScannedHead:
                 fh.write(struct.pack("<12fH", *n, *p0, *p1, *p2, 0))
         return path
 
+    def ring_circumference(self, theta_deg: float = 78.0) -> float:
+        """Circumference of the surface at the height the lateral ring sits."""
+        i = int(round(theta_deg / MAX_THETA_DEG * (THETA_STEPS - 1)))
+        ring = self.radius[min(i, THETA_STEPS - 1)]
+        points = np.array(
+            [
+                [r * math.cos(2 * math.pi * j / PHI_STEPS), r * math.sin(2 * math.pi * j / PHI_STEPS)]
+                for j, r in enumerate(ring)
+            ]
+        )
+        closed = np.vstack([points, points[:1]])
+        return float(np.sum(np.linalg.norm(np.diff(closed, axis=0), axis=1)))
+
+    def scaled_to(self, target_circumference_mm: float) -> "ScannedHead":
+        """The same head shape, resized to a chosen ring circumference.
+
+        A LiDAR scan measures hair where it lies, uncompressed. This one reads
+        about 790 mm around the ring line against 575 mm of tape on her scalp,
+        so the reconstruction carries roughly three centimetres of loft
+        everywhere. A cap does not sit on that; it presses through it.
+
+        Building to the raw figure gives a frame 282 mm across, which is both
+        comically oversized and too big for a 220 mm print bed. Scaling keeps
+        her contour — the shape is still hers, every bump and the slope of her
+        occiput — and only sets how much hair the frame expects to flatten.
+        """
+        factor = target_circumference_mm / self.ring_circumference()
+        return ScannedHead(
+            radius=self.radius * factor,
+            centre=self.centre.copy(),
+            crown_z=self.crown_z,
+        )
+
     def direction_to(self, point: np.ndarray, origin: np.ndarray) -> np.ndarray:
         """Unit direction of ``point`` as seen from ``origin``."""
         d = np.asarray(point, dtype=float) - np.asarray(origin, dtype=float)
