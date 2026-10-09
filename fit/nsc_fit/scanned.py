@@ -178,7 +178,38 @@ class ScannedHead:
         return d / np.linalg.norm(d)
 
 
-def load(path: str | Path, face_azimuth_deg: float | None = None) -> ScannedHead:
+def symmetrize(radius: np.ndarray) -> np.ndarray:
+    """Repair one-sided scan dropout by mirroring across the sagittal plane.
+
+    A hand-held scan rarely closes evenly on both sides of a head, and where
+    it thins out the reconstruction collapses inward. On this scan her
+    right-front quadrant sits up to 17 mm inside its mirror image, smoothly
+    across the whole region — a skull does not do that, a scanner losing
+    tracking does. Left unrepaired it puts a visible dent in the frame.
+
+    Each cell is replaced by the larger of itself and its mirror. Taking the
+    larger rather than the average matters: a dropout is a spurious *inward*
+    collapse, so the intact side carries the true radius, and erring outward
+    gives a cap that is slightly loose rather than one that will not go on.
+
+    The cost is that genuine left-right asymmetry is flattened too. For a cap
+    that is the right trade — nobody wants a frame built around a scanner
+    artifact — but it is why the repaired surface is no longer purely
+    measured.
+    """
+    index = np.arange(radius.shape[1])
+    # x -> -x maps azimuth phi to 180 - phi.
+    mirrored = np.round(
+        ((180.0 - index * 360.0 / radius.shape[1]) % 360.0) / 360.0 * radius.shape[1]
+    ).astype(int) % radius.shape[1]
+    return np.maximum(radius, radius[:, mirrored])
+
+
+def load(
+    path: str | Path,
+    face_azimuth_deg: float | None = None,
+    repair_dropout: bool = True,
+) -> ScannedHead:
     """Read a scan and turn it into an aligned cranium height field.
 
     The face direction is found from the scan itself unless given. A forehead
@@ -195,7 +226,17 @@ def load(path: str | Path, face_azimuth_deg: float | None = None) -> ScannedHead
 
     if face_azimuth_deg is None:
         face_azimuth_deg = _detect_face_azimuth(verts)
-    return _height_field(_rotate_face_to_front(verts, face_azimuth_deg))
+
+    head = _height_field(_rotate_face_to_front(verts, face_azimuth_deg))
+    if repair_dropout:
+        head = ScannedHead(
+            radius=gaussian_filter(
+                symmetrize(head.radius), sigma=(1.0, 2.0), mode=("nearest", "wrap")
+            ),
+            centre=head.centre,
+            crown_z=head.crown_z,
+        )
+    return head
 
 
 def _to_z_up_mm(verts: np.ndarray) -> np.ndarray:

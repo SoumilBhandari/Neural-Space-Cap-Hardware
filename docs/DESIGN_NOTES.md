@@ -132,6 +132,25 @@ The general lesson is the same one the index nub and the size badge taught:
 placing a feature exactly on a boundary is placing it on the wrong side of
 that boundary half the time.
 
+## The scan has a dropout on her right, and it put a dent in the frame
+
+A hand-held scan rarely closes evenly on both sides of a head. This one lost
+her right-front quadrant, and where the data thinned the reconstruction
+collapsed inward — up to 17.7 mm inside its own mirror image, smoothly across
+the whole region. A skull does not do that; a scanner losing tracking does.
+Unrepaired it put a visible dent in the lateral ring.
+
+`nsc_fit.scanned.symmetrize` mirrors the height field across the sagittal
+plane and keeps the larger of each pair. Larger rather than average, because a
+dropout is a spurious inward collapse: the intact side carries the true
+radius, and erring outward gives a cap that is slightly loose rather than one
+that will not go on. Worst asymmetry after repair is 0.0 mm.
+
+The cost is that genuine left-right asymmetry is flattened with it. For a cap
+that is the right trade, but it does mean the repaired surface is no longer
+purely measured, and it is why `repair_dropout` is a flag rather than
+something done silently.
+
 ## Splitting the frame is not solved
 
 The frame is 172 x 202 x 128 mm, which fits a 220 mm bed but not every printer,
