@@ -30,9 +30,22 @@ from .ten_twenty import (
     temple_site,
 )
 
-# Points per band. 48 is smooth at head scale without making OpenSCAD crawl
-# through several thousand hull() operations.
-BAND_STEPS = 48
+# Points per band. A band is swept as a hull of spheres at consecutive points,
+# so between them its surface is a straight chord that sags inward. Denser
+# sampling shrinks that sag quadratically.
+BAND_STEPS = 96
+
+# Extra standoff on top of the liner gap.
+#
+# Placing a centreline exactly on the surface it is cut against leaves no room
+# for the chord sag above: the cut is tangent to the centreline, so any sag at
+# all means the subtraction bites into the band. Measured sag was up to
+# 1.23 mm on the sagittal arch, which necked the bands visibly — a pinch next
+# to a socket that looks like a divot taken out of the part.
+#
+# The band still has a flat inner face conforming to the head; it just sits
+# this much prouder of it.
+CHORD_MARGIN = 1.5
 
 
 def write_head_params(head: Head, sites: dict[str, Site], path: str | Path) -> Path:
@@ -219,7 +232,7 @@ def write_scan_params(
         direction = np.asarray(point) - ellipsoid_centre
         direction = direction / np.linalg.norm(direction)
         surface = scan.surface_towards(direction)
-        return surface + direction * standoff_mm - scan.centre
+        return surface + direction * (standoff_mm + CHORD_MARGIN) - scan.centre
 
     bands = {
         "lateral": _project(_sample(_loop_of(head, sites), 0.0, 1.0, closed=True), onto_scan),

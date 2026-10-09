@@ -109,6 +109,29 @@ printed together, and whichever one sits right is the one that gets used. That
 is cheaper than one more round of measuring, and it is the honest response to
 a quantity nobody can predict.
 
+## The divot: a tangent cut has no room for chord sag
+
+The first scan-fitted frames had bites taken out of the bands, worst beside
+the sockets — pinched waists that read as damage rather than design.
+
+A band is swept as a hull of spheres at consecutive path points, so between
+two points its surface is a straight chord, and a chord across a curve sags
+inward. The band centreline was placed exactly on the surface it is cut
+against, which makes the cut tangent to the centreline and leaves that sag
+nowhere to go: anywhere the chord dipped, the subtraction ate into the band.
+Measured sag was 0.70 mm around the lateral ring and 1.23 mm on the sagittal
+arch, against a 5.5 mm band radius.
+
+Two changes. Band paths are sampled twice as densely, which shrinks sag
+quadratically; and the centreline now stands off by the liner gap plus a
+1.5 mm margin, so the chord never reaches the cut. Every band now clears it
+by at least 0.79 mm. The inner face is still flat against the head — the band
+simply sits a little prouder of it.
+
+The general lesson is the same one the index nub and the size badge taught:
+placing a feature exactly on a boundary is placing it on the wrong side of
+that boundary half the time.
+
 ## Splitting the frame is not solved
 
 The frame is 172 x 202 x 128 mm, which fits a 220 mm bed but not every printer,
