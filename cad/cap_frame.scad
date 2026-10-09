@@ -55,9 +55,21 @@ pod_pad_l   = 46;
 pod_pad_w   = 34;
 pod_pad_t   = 5;
 
+// The volume the frame is hollowed against.
+//
+// With a scan, this is her actual surface, already inflated by the liner gap
+// when it was exported — so the inside of the print follows her contour,
+// including the side where her hair is thicker. Without one, it falls back to
+// the fitted ellipsoid, which is a generic head of the right size.
 module head_solid(grow = 0) {
-    scale([head_axes[0] + grow, head_axes[1] + grow, head_axes[2] + grow]) sphere(r = 1);
+    if (is_undef(scan_stl))
+        scale([head_axes[0] + grow, head_axes[1] + grow, head_axes[2] + grow]) sphere(r = 1);
+    else
+        import(scan_stl, convexity = 8);
 }
+
+// True when the frame is being built on a scan rather than on an ellipsoid.
+function on_scan() = !is_undef(scan_stl);
 
 // Sweep a tube along a polyline by hulling consecutive spheres. Crude, but it
 // follows an arbitrary 3D path exactly, which is the whole point here.
@@ -151,15 +163,21 @@ module frame_solid() {
             if (size_label != "") size_badge();
         }
 
-        // Hollow the inside to the head, plus room for the liner and hair.
-        head_solid(liner_gap);
+        // Hollow the inside to the head. On a scan the liner gap is already
+        // baked into the exported surface, so inflating again here would
+        // double it and leave the frame floating off her head.
+        head_solid(on_scan() ? 0 : liner_gap);
 
         for (m = mounts) electrode_bore(m);
         ppg_bore();
         pod_pad_holes();
 
-        // Trim anything hanging below the landmark plane.
-        translate([0, 0, -200 + trim_z]) cube([600, 600, 400], center = true);
+        // Trim anything hanging below the lowest band. On a scan this height
+        // comes from the bands themselves: scan coordinates are measured from
+        // a centre inside the skull, so the ellipsoid's fixed trim height cuts
+        // through the middle of the head and leaves the ring in fragments.
+        translate([0, 0, -200 + (on_scan() ? scan_trim_z : trim_z)])
+            cube([600, 600, 400], center = true);
     }
 }
 

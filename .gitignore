@@ -16,3 +16,6 @@ __pycache__/
 
 # LiDAR scans of real people. Identifiable biometric data — never in a public repo.
 scan/
+
+# Generated, and on a scan it encodes a real person's head shape.
+cad/head_params.scad

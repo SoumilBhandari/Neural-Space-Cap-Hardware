@@ -81,6 +81,16 @@ def main() -> None:
             render_still(OUT / f"{name}.png")
             print(f"rendered {name}")
 
+    if args.mode == "scan":
+        for az, el, tag in ((55, 18, "scan"), (235, 18, "scan_back"), (90, 86, "scan_top")):
+            reset_scene()
+            configure_render(args.samples)
+            parts = [load("cap_frame.stl", "frame"), load("head_form.stl", "head")]
+            centre, radius = frame_shot(parts, azimuth=az, elevation=el)
+            studio(radius)
+            render_still(OUT / f"{tag}.png")
+            print(f"rendered {tag}")
+
     if args.mode == "sizes":
         reset_scene()
         configure_render(args.samples)
@@ -112,7 +122,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="blender_render")
     # One animation per invocation. Rendering two FFmpeg outputs from a single
     # Blender session leaves the second file an empty container.
-    parser.add_argument("--mode", default="stills", choices=("stills", "turntable", "fit", "sizes"))
+    parser.add_argument("--mode", default="stills", choices=("stills", "turntable", "fit", "sizes", "scan"))
     parser.add_argument("--theme", default="dark", choices=tuple(THEMES))
     parser.add_argument("--samples", type=int, default=96)
     parser.add_argument("--anim-samples", type=int, default=48)
@@ -126,7 +136,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def build(name: str):
-    if name == "hero":
+    if name == "scan":
+        parts = [load("cap_frame.stl", "frame"), load("head_form.stl", "head")]
+        centre, radius = frame_shot(parts, azimuth=55, elevation=18)
+    elif name == "hero":
         parts = [load("cap_frame.stl", "frame"), load("head_form.stl", "head")]
         centre, radius = frame_shot(parts, azimuth=55, elevation=20)
     elif name == "frame":

@@ -10,7 +10,7 @@ SCAD    = openscad
 BLENDER = /Applications/Blender.app/Contents/MacOS/Blender
 BUILD   = build
 
-.PHONY: all fit parts headform preview renders animation sizes test clean
+.PHONY: all fit parts headform preview renders animation sizes scan test clean
 
 all: fit parts
 
@@ -116,3 +116,26 @@ sizes: headform
 	      -o $(BUILD)/sizes/frame_$$circ.stl cad/cap_frame.scad 2>/dev/null; \
 	done
 	@echo "size run in $(BUILD)/sizes/"
+
+## Fit the frame to a LiDAR scan instead of to an ellipsoid.
+##
+## The ellipsoid is a generic head of the right size; this is her head. Band
+## paths and mounts are read off the scanned surface, and the frame is
+## hollowed against it, so the inside of the print follows her contour —
+## including the side where her hair is thicker.
+##
+## SCAN_GAP is clearance over hair. Raise it if the print sits proud, lower it
+## if it will not go on.
+SCAN     ?= scan/10_9_2026.obj
+SCAN_GAP ?= 4
+
+scan:
+	cd fit && python3 -c "from nsc_fit import head, ten_twenty, scanned, scad_export; \
+	  sc = scanned.load('../$(SCAN)'); \
+	  sc.write_stl('../$(BUILD)/scan_head.stl', $(SCAN_GAP)); \
+	  sc.write_stl('../$(BUILD)/head_form.stl', 0.0); \
+	  h = head.fit(head.Measurements($(CIRC), $(NI), $(PA))); \
+	  scad_export.write_scan_params(sc, h, ten_twenty.montage(h), '../cad/head_params.scad', \
+	      stl_name='../$(BUILD)/scan_head.stl', standoff_mm=$(SCAN_GAP))"
+	$(SCAD) -D 'part="frame"' -o $(BUILD)/cap_frame.stl cad/cap_frame.scad
+	@echo "scan-fitted frame in $(BUILD)/cap_frame.stl"

@@ -37,7 +37,15 @@ def frame(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("frame")
     fitted = head.fit(head.Measurements(570, 370, 350))
     sites = ten_twenty.montage(fitted)
-    scad_export.write_head_params(fitted, sites, CAD / "head_params.scad")
+
+    # cap_frame.scad includes head_params.scad from its own directory, so the
+    # test has to write there. Put back whatever was there afterwards: the
+    # file may hold a scan fit that took real work to produce, and silently
+    # replacing it with a generic ellipsoid is a nasty thing to do to someone
+    # who just ran the tests.
+    params = CAD / "head_params.scad"
+    saved = params.read_text() if params.exists() else None
+    scad_export.write_head_params(fitted, sites, params)
 
     stl = tmp / "frame.stl"
     subprocess.run(
@@ -49,7 +57,13 @@ def frame(tmp_path_factory):
     vertices = np.array(
         [[float(v) for v in t] for t in re.findall(r"vertex\s+(\S+)\s+(\S+)\s+(\S+)", text)]
     )
-    return fitted, sites, vertices
+
+    yield fitted, sites, vertices
+
+    if saved is None:
+        params.unlink(missing_ok=True)
+    else:
+        params.write_text(saved)
 
 
 def test_only_phase_one_sockets_carry_a_raised_collar(frame):
