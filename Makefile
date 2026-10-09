@@ -10,7 +10,7 @@ SCAD    = openscad
 BLENDER = /Applications/Blender.app/Contents/MacOS/Blender
 BUILD   = build
 
-.PHONY: all fit parts headform preview renders animation sizes scan scan-sizes test clean
+.PHONY: all fit parts headform preview renders animation sizes scan scan-sizes coupon test clean
 
 all: fit parts
 
@@ -152,3 +152,9 @@ scan-sizes:
 	      --out ../$(BUILD)/scan_sizes/frame_$$c.stl) || exit 1; \
 	done
 	@echo "size run in $(BUILD)/scan_sizes/"
+
+## Thumb-sized test piece: one electrode socket, one insert boss, cut with the
+## same numbers as the frame. Print it before committing hours to a frame.
+coupon:
+	$(SCAD) -D 'part="coupon"' -o $(BUILD)/fit_coupon.stl cad/cap_frame.scad
+	@echo "print $(BUILD)/fit_coupon.stl first — five minutes, saves a frame"

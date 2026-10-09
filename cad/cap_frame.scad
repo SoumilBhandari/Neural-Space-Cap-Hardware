@@ -35,7 +35,17 @@
 include <params.scad>
 include <head_params.scad>
 
-part = "preview";   // "frame", "headform", "preview"
+part = "preview";   // "frame", "headform", "coupon", "preview"
+
+// Sacrificial feet for printing. The frame is a swept tube on a curved path,
+// so no part of it is flat: ring-down it meets the plate at one tangent point
+// with no first-layer area at all, and a brim has nothing to hold on to.
+// Snip the necks and sand the four stubs after printing.
+feet_on     = true;
+foot_pad_d  = 18;    // footprint on the plate
+foot_pad_h  = 0.6;
+foot_neck_d = 3.5;   // thin enough to snap, thick enough to print
+foot_neck_h = 3.0;
 
 // Printed into the pod pad. Four frames a few percent apart are impossible to
 // tell apart by eye once they are off the print bed.
@@ -45,7 +55,10 @@ band_d      = 11.0;   // swept diameter of a band
 liner_gap   = 2.5;    // clearance for the fabric liner and hair
 trim_z      = 8.0;    // nothing hangs below this height above the landmarks
 
-socket_d    = cup_d + 2 * wall + 2 * clearance;   // matches the holder hub
+// The holder's hub plus a press-fit allowance. Equal diameters do not press
+// together, they jam — tight_fit is what makes it an assembly rather than two
+// parts that both measure 14.6 mm and refuse to meet.
+socket_d    = carrier_d + tight_fit;
 socket_h    = 7.0;
 boss_d      = socket_d + 2 * wall + 2;
 ppg_seat_d  = ppg_d + 2 * wall + 2 * clearance;  // matches sensor_puck body
@@ -215,7 +228,64 @@ module head_form() {
     }
 }
 
-if (part == "frame") frame_solid();
+function floor_z() = on_scan() ? scan_trim_z : trim_z;
+
+// One foot: a wide pad tapering up to a thin neck that snaps off.
+//
+// The pad is deliberately built below the floor and cut flat by the same trim
+// plane the frame uses. Deriving a plate height from the ring instead leaves
+// the pads hanging in mid-air a few millimetres up, which is what the first
+// attempt did — the part still had zero first-layer area and would still have
+// failed, while looking like it had feet.
+module foot(point) {
+    pad_top = floor_z() + foot_pad_h;
+    translate([point[0], point[1], floor_z() - 5])
+        cylinder(d = foot_pad_d, h = 5 + foot_pad_h);
+    hull() {
+        translate([point[0], point[1], pad_top - 0.1]) cylinder(d = foot_pad_d, h = 0.1);
+        // Terminate on a ball centred on the band's own centreline rather
+        // than on a column stopping short of it. Where the band is swept
+        // about a centreline lying on the head — as it is without a scan —
+        // the hollowing cuts its lower half away, and a column reaching only
+        // to the centreline ends in the gap that leaves. The feet printed,
+        // looked right, and were not attached to anything.
+        translate(point) sphere(d = foot_neck_d);
+    }
+}
+
+module print_feet() {
+    difference() {
+        union() { for (f = feet) foot(f); }
+        translate([0, 0, -200 + floor_z()]) cube([600, 600, 400], center = true);
+    }
+}
+
+// A thumb-sized coupon carrying one electrode socket and one insert boss.
+// Print it in the corner of the plate first: it takes a few minutes and tells
+// you whether the cup electrode presses in and whether the heat-set insert
+// seats, before committing six hours to a frame built on the same numbers.
+module fit_coupon() {
+    difference() {
+        union() {
+            cube([46, 26, 4], center = true);
+            translate([-11, 0, 0]) cylinder(d = boss_d, h = socket_h + 2, center = true);
+            translate([13, 0, 0]) cylinder(d = insert_d + 2 * wall + 2, h = 6, center = true);
+        }
+        translate([-11, 0, -10]) cylinder(d = socket_d, h = 30);
+        translate([13, 0, -1]) cylinder(d = insert_d, h = insert_h + 2);
+        // Which numbers this coupon was cut with, so a drawer full of them
+        // stays meaningful.
+        translate([0, -9.5, 2]) linear_extrude(0.8)
+            text(str(socket_d, "/", insert_d), size = 3.2, halign = "center",
+                 valign = "center", font = "Helvetica:style=Bold");
+    }
+}
+
+// Feet exist only on a scan build. The reference ellipsoid frame has its
+// bands swept about centrelines lying on the surface, so hollowing cuts away
+// the lower half and a neck thin enough to snap cannot reach what is left.
+if (part == "frame") { frame_solid(); if (feet_on && !is_undef(feet)) print_feet(); }
+else if (part == "coupon") fit_coupon();
 else if (part == "headform") head_form();
 else {
     // Preview: the frame sitting on a ghost of the head it was fitted to.

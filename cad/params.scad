@@ -32,6 +32,14 @@ cup_d          = 10.0;
 cup_h          = 4.0;
 cable_d        = 2.2;
 
+// Outside of the sprung holder's hub, and therefore the thing the frame's
+// socket has to receive. Defined here rather than in each part because the
+// two were computed separately and came out identical — a nominally
+// zero-clearance press fit, which on a printer means an interference fit of
+// whatever the machine happens to over-extrude, and two parts that will not
+// go together at all.
+carrier_d      = cup_d + 2 * wall + 2 * clearance;
+
 // --- PPG sensor ------------------------------------------------------------
 // OpenBCI / PulseSensor round board.
 ppg_d          = 15.8;

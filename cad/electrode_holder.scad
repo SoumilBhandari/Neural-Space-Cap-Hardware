@@ -18,7 +18,6 @@
 
 include <params.scad>
 
-carrier_d   = cup_d + 2 * wall + 2 * clearance;
 spring_or   = carrier_d / 2 + 14;          // outer radius of the spring annulus
 flange_d    = 2 * (spring_or + flange_w);
 spring_t    = 0.8;

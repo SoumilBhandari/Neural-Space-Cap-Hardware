@@ -272,6 +272,15 @@ def write_scan_params(
         lines.append(f"band_{name} = {_vector_list(points)};")
     lines.append("")
 
+    # Sacrificial print feet. The frame is a swept tube on a curved path, so
+    # nothing on it is flat: laid ring-down it touches the plate at a single
+    # tangent point with 0.0 mm2 of first-layer area, which no brim can rescue
+    # because there is nothing for the brim to attach to. Feet give it real
+    # footprint, and snap off at a deliberately thin neck.
+    lines.append("// Sacrificial feet: contact points chosen round the ring.")
+    lines.append(f"feet = {_vector_list(_foot_points(bands['lateral']))};")
+    lines.append("")
+
     lines.append("// [name, position, [rot_x, rot_y, rot_z], phase_one]")
     entries = []
     for name in MONTAGE_V1:
@@ -341,3 +350,27 @@ def _scan_normal_rotation(scan, point: np.ndarray) -> tuple[float, float]:
     elevation = math.degrees(math.acos(float(np.clip(normal[2], -1.0, 1.0))))
     azimuth = math.degrees(math.atan2(float(normal[1]), float(normal[0])))
     return elevation, azimuth
+
+
+# Feet closer together than this are redundant; further apart and the part
+# rocks between them.
+FOOT_SPACING_MM = 45.0
+MAX_FEET = 8
+
+
+def _foot_points(ring: np.ndarray) -> list:
+    """Low points around the ring to stand the print on.
+
+    Picked lowest-first and thinned by spacing, so the feet land where the
+    part already hangs closest to the plate and are spread far enough apart to
+    stop it rocking.
+    """
+    order = np.argsort(ring[:, 2])
+    chosen: list[np.ndarray] = []
+    for index in order:
+        point = ring[index]
+        if all(np.linalg.norm(point[:2] - other[:2]) >= FOOT_SPACING_MM for other in chosen):
+            chosen.append(point)
+        if len(chosen) >= MAX_FEET:
+            break
+    return chosen
