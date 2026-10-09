@@ -20,7 +20,11 @@ include <params.scad>
 
 spring_or   = carrier_d / 2 + 14;          // outer radius of the spring annulus
 flange_d    = 2 * (spring_or + flange_w);
-spring_t    = 0.8;
+// Two extrusion widths exactly. At 0.8 mm the slicer rounds up to 0.84 and
+// the spring comes out stiffer than designed; asking for 0.84 gets 0.84 and
+// the stiffness is the one that was calculated. Three widths for a firmer
+// press.
+spring_t    = 2 * line_w;
 slot_w      = 1.6;
 slot_sweep  = 150;                          // degrees each spiral arm wraps
 carrier_h   = cup_h + wall;

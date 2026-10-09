@@ -43,8 +43,11 @@ part = "preview";   // "frame", "headform", "coupon", "preview"
 // Snip the necks and sand the four stubs after printing.
 feet_on     = true;
 foot_pad_d  = 18;    // footprint on the plate
-foot_pad_h  = 0.6;
-foot_neck_d = 3.5;   // thin enough to snap, thick enough to print
+foot_pad_h  = 3 * layer_h;   // three clean layers, no partial top
+// Six extrusion widths. 3.5 mm of PETG takes real force to cut and risks
+// marking the band; this is still far stronger than anything the print puts
+// on it, and flush cutters go through it in one squeeze.
+foot_neck_d = 6 * line_w;
 foot_neck_h = 3.0;
 
 // Printed into the pod pad. Four frames a few percent apart are impossible to

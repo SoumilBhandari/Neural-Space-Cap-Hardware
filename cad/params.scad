@@ -5,6 +5,16 @@
 
 $fn = 64;
 
+// --- The printer ------------------------------------------------------------
+// A 0.4 mm nozzle on a Bambu H2D. Thin features are dimensioned as whole
+// multiples of these rather than as round numbers, because a slicer cannot
+// lay down a fraction of a line: ask for 0.80 mm and you get 0.84, which on a
+// flexure is 16% more stiffness than intended, since stiffness goes as the
+// cube of thickness.
+nozzle_d       = 0.4;
+line_w         = 0.42;   // extrusion width the slicer actually uses
+layer_h        = 0.2;
+
 // --- Print tolerances -------------------------------------------------------
 // Measured on the team's printer with a fit-test coupon. Re-measure if the
 // printer or filament changes; every press-fit in the project depends on it.
