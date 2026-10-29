@@ -245,12 +245,16 @@ def load(
 ) -> ScannedHead:
     """Read a scan and turn it into an aligned cranium height field.
 
-    The face direction is found from the scan itself unless given. A forehead
-    carries no hair and a scalp does, so the radius from the head's centre is
-    smallest toward the face and largest toward the back. On this scan the two
-    are 83 mm and 158 mm and sit 195 degrees apart, which is an unambiguous
-    axis. Pass ``face_azimuth_deg`` to override it for a scan where that does
-    not hold — a hat, a very short haircut, a half-finished scan.
+    The face direction is found from the scan itself unless given, by looking
+    for skin in its photographic texture: a face is skin and the rest of a head
+    is hair, and on this scan those read about RGB (155, 107, 87) and
+    (20, 23, 27) respectively.
+
+    An earlier version inferred it from shape instead, on the reasoning that a
+    forehead carries no hair so the head is narrowest toward the face. That was
+    180 degrees wrong here — her hair lies flat against the occiput and full at
+    the front — and it put the whole montage on backwards, with Fpz on the back
+    of her head. Shape is now only the fallback for a scan with no texture.
     """
     verts, faces = _read_obj(Path(path))
     verts = _largest_component(verts, faces)
@@ -258,7 +262,9 @@ def load(
     verts = _crop_to_head(verts)
 
     if face_azimuth_deg is None:
-        face_azimuth_deg = _detect_face_azimuth(verts)
+        face_azimuth_deg = _detect_face_from_texture(Path(path))
+        if face_azimuth_deg is None:
+            face_azimuth_deg = _detect_face_azimuth(verts)
 
     head = _height_field(_rotate_face_to_front(verts, face_azimuth_deg))
     if repair_dropout:
@@ -291,7 +297,18 @@ def _crop_to_head(verts: np.ndarray, radius_mm: float = 170.0, drop_mm: float = 
 
 
 def _detect_face_azimuth(verts: np.ndarray) -> float:
-    """Azimuth of the thinnest side of the head, which is the face."""
+    """Azimuth of the thinnest side of the head.
+
+    Fallback only, for a scan with no usable texture. The reasoning is that a
+    forehead carries no hair and the back of a head does, so the head should be
+    narrowest toward the face.
+
+    On this project's scan that reasoning was simply wrong and the result was
+    180 degrees out: her hair is slicked flat against the occiput and full at
+    the front and sides, so the thinnest direction was the back of her head.
+    Prefer :func:`_detect_face_from_texture`, which measures skin instead of
+    guessing from shape.
+    """
     crown = verts[:, 2].max()
     band = verts[(verts[:, 2] > crown - 115) & (verts[:, 2] < crown - 45)]
     phi = np.degrees(np.arctan2(band[:, 1], band[:, 0])) % 360
@@ -304,6 +321,86 @@ def _detect_face_azimuth(verts: np.ndarray) -> float:
     medians = np.array(medians)
     valid = medians[~np.isnan(medians[:, 1])]
     return float(valid[np.argmin(valid[:, 1]), 0])
+
+
+def _detect_face_from_texture(path: Path) -> float | None:
+    """Azimuth of the face, found by looking for skin in the scan's photograph.
+
+    A face is skin and the rest of a head is hair, and on a colour scan those
+    are not close: around this head the face reads about RGB (155, 107, 87)
+    and everything else about (20, 23, 27). Brightness plus red-minus-blue
+    separates them by a factor of four, which no amount of unusual hair can
+    invert.
+
+    Returns None when the scan has no texture to read, in which case the
+    caller falls back to the shape heuristic.
+    """
+    try:
+        from PIL import Image
+    except ImportError:  # pragma: no cover - Pillow is optional
+        return None
+
+    texture = _texture_path(path)
+    if texture is None or not texture.exists():
+        return None
+
+    Image.MAX_IMAGE_PIXELS = None
+    pixels = np.asarray(Image.open(texture).convert("RGB"))
+    height, width = pixels.shape[:2]
+
+    positions, uvs, corners = [], [], []
+    for line in path.read_text().splitlines():
+        if line.startswith("v "):
+            positions.append([float(t) for t in line.split()[1:4]])
+        elif line.startswith("vt "):
+            uvs.append([float(t) for t in line.split()[1:3]])
+        elif line.startswith("f "):
+            for token in line.split()[1:4]:
+                part = token.split("/")
+                corners.append((int(part[0]) - 1,
+                                int(part[1]) - 1 if len(part) > 1 and part[1] else -1))
+    if not uvs:
+        return None
+
+    points = _to_z_up_mm(np.array(positions))
+    uvs = np.array(uvs)
+
+    # Measure azimuth about the head's own vertical axis, found the same way
+    # _crop_to_head finds it. Using the scan origin instead puts the axis
+    # somewhere out in the room and every azimuth is meaningless.
+    crown_z = points[:, 2].max()
+    top = points[points[:, 2] > crown_z - 80]
+    cx, cy = float(np.median(top[:, 0])), float(np.median(top[:, 1]))
+
+    scores: dict[int, list[float]] = {}
+    for vertex, uv in corners:
+        if uv < 0 or vertex >= len(points):
+            continue
+        p = points[vertex]
+        if not (crown_z - 115 < p[2] < crown_z - 45):
+            continue
+        u, v = uvs[uv]
+        x = int(np.clip(u, 0, 1) * (width - 1))
+        y = int((1 - np.clip(v, 0, 1)) * (height - 1))
+        r, g, b = (float(c) for c in pixels[y, x])
+        bucket = int(math.degrees(math.atan2(p[1] - cy, p[0] - cx)) % 360 // 20) * 20
+        scores.setdefault(bucket, []).append((r + g + b) / 3 + (r - b))
+
+    usable = {k: float(np.mean(v)) for k, v in scores.items() if len(v) > 30}
+    if not usable:
+        return None
+    return float(max(usable, key=usable.get) + 10)
+
+
+def _texture_path(obj_path: Path) -> "Path | None":
+    """The diffuse texture a scan's .mtl points at."""
+    mtl = obj_path.with_suffix(".mtl")
+    if not mtl.exists():
+        return None
+    for line in mtl.read_text().splitlines():
+        if line.strip().startswith("map_Kd"):
+            return obj_path.parent / line.split(maxsplit=1)[1].strip()
+    return None
 
 
 def _rotate_face_to_front(verts: np.ndarray, face_azimuth_deg: float) -> np.ndarray:

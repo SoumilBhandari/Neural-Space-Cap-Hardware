@@ -1,147 +1,224 @@
+<div align="center">
+
 # Neural Space Cap — Hardware
 
-The physical side of the Neural Space Cap: where the electrodes go on a head,
-and the printed parts that hold them there.
+**A 3D-printed EEG cap generated from a LiDAR scan of one specific head.**
 
-Purdue VIP / AAMED. Companion to
-[Neural-Space-Cap-Software](https://github.com/SoumilBhandari/Neural-Space-Cap-Software),
-which handles the firmware and the signal processing.
+Three tape measurements, or a phone scan, in. Electrode positions, a marking
+template, and print-ready STLs out.
 
-## What this repository is for
+<img src="docs/images/cap_on_head.png" width="620" alt="The cap frame fitted to a scanned head">
 
-Two problems, both of which cost the team real data last semester.
+Purdue VIP · AAMED · companion to
+**[Neural-Space-Cap-Software](https://github.com/SoumilBhandari/Neural-Space-Cap-Software)**
+(firmware and signal processing)
 
-**Electrodes need to go in the right place, and the same place every time.** A
-sensor taped to a temple with a bandaid sits somewhere slightly different in
-every session, and that movement is indistinguishable from the subject's
-physiology changing. `nsc_fit` turns three tape-measure numbers into a
-printable template that puts every electrode on its International 10-20 site.
+</div>
 
-**Electrode contact was the largest source of bad data.** The instinctive fix —
-cinching the cap tighter — makes it worse, because it mats the hair under the
-cup instead of parting it. The printed holder here takes the contact load on a
-printed spring, so the pressure is the same at every site however the cap is
-worn.
+---
+
+## The problem
+
+Two failures cost this team real data, and both are about geometry rather than electronics.
+
+**An electrode that moves is an electrode you cannot compare.** A sensor taped
+to a temple with a bandaid sits somewhere slightly different every session, and
+that movement is indistinguishable from the subject's physiology changing.
+
+**Electrode contact was the largest single source of noise.** The instinctive
+fix, cinching the cap tighter, makes it *worse*: it mats the hair under the cup
+instead of parting it.
+
+So the cap has to put every electrode on a defined anatomical site, return it to
+the same site next week, and press each one with the same force regardless of how
+tightly it is worn.
+
+---
+
+## What it produces
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/cap_top.png" alt="Top view showing the 10-20 layout"></td>
+<td width="50%"><img src="docs/images/cap_back.png" alt="Back view showing the pod mount"></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><em>A closed ring braced by four arches, carrying eight electrode sockets, a temple seat for the heart-rate sensor, and a pod mount at the back</em></td>
+</tr>
+</table>
+
+| | |
+|---|---|
+| **Montage** | Fpz, F3, F4, C3, Cz, C4, P3, P4 — International 10-20 |
+| **Phase one** | F4, Cz, P3 stand 2.5 mm proud so you can find them by hand |
+| **Fit** | Built on the scanned surface, not a scaled generic head |
+| **Output** | Watertight single-shell STLs with sacrificial print feet |
+| **Also** | 1:1 marking template, montage map, 3D positions CSV |
+
+---
 
 ## Quick start
 
 ```bash
-make fit SUBJECT="subject A" CIRC=570 NI=370 PA=350
+# From tape measurements: template, montage map, positions, printed parts
+make fit SUBJECT="subject A" CIRC=575 NI=350 PA=340
 make parts
+
+# From a LiDAR scan: a frame fitted to that specific head
+make scan SCAN=scan/head.obj SCAN_CIRC=660
+
+# Four sizes to print and try
+make scan-sizes
+
+# A 5-minute coupon that tells you whether the electrode presses in
+make coupon
 ```
 
-The first writes a marking template, a montage map, a positions CSV and the
-head geometry the CAD reads. The second exports STLs for the printed parts,
-including a cap frame shaped to that specific head. `make test` runs the
-geometry tests, which need no hardware.
+Needs Python with NumPy/SciPy, OpenSCAD, and Blender for renders.
 
-See [docs/FITTING.md](docs/FITTING.md) for how to take the three measurements
-and how to use the template on an actual head.
+---
+
+## How a scan becomes a cap
+
+<img src="docs/images/montage_diagram.png" width="420" align="right" alt="The 10-20 montage">
+
+**1. Isolate the head.** A phone scan is a 5.4 × 4.7 m room. The head is the
+narrow cluster at the top.
+
+**2. Weld it.** Scanners duplicate a vertex per texture island, so the mesh is
+topologically shattered. Before welding, the largest connected piece of this
+head was about **1%** of it.
+
+**3. Find the face.** A bare scan has no landmarks, and the whole montage
+depends on knowing which way is forward. Detected from **skin colour** in the
+scan's own photograph.
+
+**4. Repair dropout.** Mirror the intact side across and keep the larger of
+each pair, because a dropout is a collapse *inward*.
+
+**5. Resample to a height field.** Distance from the head centre out to the
+hair, in every direction. This is what the CAD is built on, and it is what
+makes the cap hers.
+
+**6. Place the montage.** 10-20 defines sites as percentages along arcs between
+bony landmarks. Direction comes from the standard; position is read off her
+surface along that direction.
+
+<br clear="right">
+
+| <img src="docs/images/mesh_welding.png"> | <img src="docs/images/face_detection.png"> |
+|:--:|:--:|
+| Step 2: the mesh is in thousands of pieces until vertices are welded | Step 3: the shape heuristic that failed, and why |
+
+| <img src="docs/images/height_field.png"> | <img src="docs/images/dropout_repair.png"> |
+|:--:|:--:|
+| Step 5: her head as a measured surface | Step 4: a scanner dropout, and its repair |
+
+---
+
+## Sizing: the one number nothing predicts
+
+A LiDAR scan measures hair *where it lies*, uncompressed. This scan reads about
+**800 mm** around the ring line against **575 mm** of tape on the scalp. That is
+36 mm of loft everywhere, and a cap presses through it rather than resting on it.
+
+How far hair compresses under a rigid band is the single number that decides fit,
+and no measurement predicts it. So the answer is not to measure harder:
+
+<div align="center"><img src="docs/images/size_run.png" width="680" alt="Four sizes"></div>
+
+| ring circumference | hair allowance | footprint | material |
+|---|---|---|---|
+| 620 mm | 7.2 mm | 214 × 222 mm | ~191 cm³ |
+| **660 mm** | **13.5 mm** | **225 × 235 mm** | **~203 cm³** |
+| **700 mm** | **19.9 mm** | **237 × 247 mm** | **~216 cm³** |
+| 740 mm | 26.3 mm | 245 × 260 mm | ~228 cm³ |
+
+Same head, four hair allowances. Print **660 and 700** first — they bracket the
+likeliest fit. Each carries its circumference raised on the pod pad so they stay
+tellable apart off the plate.
+
+---
+
+## Printing
+
+<img src="docs/images/print_prep.png" width="100%" alt="Why generated CAD does not print">
+
+**The frame is a swept tube on a curved path, so nothing on it is flat.** Laid
+ring-down it met the build plate at a single tangent point with **0.0 mm² of
+first-layer area**. No brim can rescue that, because a brim needs something to
+hold onto. This is the ordinary reason a generated model refuses to print.
+
+Eight sacrificial feet now give it **2032 mm²** across well-spread pads, cut flat
+against the same plane that trims the frame, with the part's centre of mass
+inside them. Snip the necks, sand the stubs.
+
+Settings for a Bambu H2D with a 0.4 mm nozzle are in
+**[docs/PRINTING.md](docs/PRINTING.md)**. The three that matter:
+
+> **Chamber off** — PETG strings and heat-creeps in a warm chamber.
+> **Tree supports, build-plate-only** — otherwise they grow *inside* the dome.
+> **Print as exported** — the feet are only flat in that orientation.
+
+<div align="center"><img src="docs/images/printed_parts.png" width="640" alt="The small printed parts"></div>
+
+---
+
+## Things that looked right and were not
+
+Every bug below rendered perfectly, exported cleanly, and was wrong. None was
+visible by eye. All were caught by measuring the exported geometry and asserting
+on a number, which is why `tests/` runs against the STL and not only the source.
+
+| What happened | How it was caught |
+|---|---|
+| **The montage was on backwards.** Face detection assumed the thinnest side of a head is the forehead. Her hair lies flat at the occiput and full at the front, so it was 180° out and Fpz sat on the back of her head. | Skin colour in the scan texture: face reads RGB (155,107,87), hair (20,23,27) |
+| **The hollowing did nothing.** Head STL exported at absolute scan coordinates, about 1.5 m up; the frame sat near the origin. The subtraction missed by a metre and a half and failed silently. | Facet count did not change when it should have halved |
+| **A NaN OpenSCAD accepted.** At the crown the azimuthal derivative vanishes, so the surface normal was NaN. `rotate([0,nan,nan])` does not error, it makes garbage — at the one point where four bands meet. | Build now refuses to run on a NaN in generated parameters |
+| **The frame came apart.** Band centrelines lay exactly on the surface they were cut against, so chord sag between samples let the subtraction bite. | Connectivity check: 2 components, not 1 |
+| **Markers buried inside their own parts.** Three times: an index nub inside its boss, a size badge 2 mm inside the pad, lettering on the wrong side of a face. | STL-level test measuring axial reach |
+| **A mislabeled STL.** A plausibility guard rejected one size, the build loop carried on, and wrote a frame labelled 736 containing the 690 geometry. | It would have been printed and tested as the wrong size |
+
+The general lesson, written on the wall: **placing a feature exactly on a
+boundary puts it on the wrong side of that boundary half the time.**
+
+---
 
 ## Layout
 
 ```
-fit/nsc_fit/       Head model and 10-20 montage
-  head.py          Ellipsoid solved from three measurements
-  ten_twenty.py    Electrode positions, and the model's own error bar
-  template.py      Printable marking strips and the montage map
-  cli.py           python3 -m nsc_fit
-cad/               Parametric OpenSCAD sources
-  params.scad      Every dimension and tolerance, in one place
-  head_params.scad Generated by nsc_fit — the fitted head, as data
-  cap_frame.scad   The frame and the head form
-  electrode_holder.scad
-  sensor_puck.scad
+fit/nsc_fit/          The geometry. No CAD, no hardware, all testable.
+  head.py             Ellipsoid fitted to three tape measurements
+  ten_twenty.py       International 10-20 positions
+  scanned.py          LiDAR scan → aligned, repaired polar height field
+  scad_export.py      Band paths and mounts, as OpenSCAD data
+  template.py         Printable 1:1 marking template
+  stlclean.py         Drops detached specks (and nothing else — see notes)
+  build_scan.py       One command: scan in, verified STL out
+cad/                  Parametric OpenSCAD
+  params.scad         Every dimension and tolerance, including nozzle units
+  cap_frame.scad      The frame, the head form, the fit coupon
+  electrode_holder.scad   Sprung holder, flat printed spider spring
+  sensor_puck.scad    PPG carrier with a light shroud
   electronics_pod.scad
-tests/             Geometry tests, no hardware needed
-docs/FITTING.md    How to measure a head and mark it
-build/             Generated STLs, SVGs, CSVs. Git-ignored.
+render/               Headless Blender: stills, turntable, fit animation
+tests/                Runs with no hardware; some render STLs and measure them
+docs/                 PRINTING.md, DESIGN_NOTES.md, FITTING.md, PROTOCOLS.md
 ```
 
-## The parts
+---
 
-**Cap frame** — the part that goes on a head. A closed ring around the skull at
-Fpz/Oz level, braced by four arches: over the top, ear to ear, and the frontal
-and parietal chains. It carries eight electrode sockets — Fpz, F3, F4, C3, Cz,
-C4, P3, P4 — a seat for the PPG sensor on the left temple, and a pad for the
-electronics pod behind Oz. The three sockets wired first (F4, Cz, P3) stand
-2.5 mm proud of the rest so they can be found by hand without a drawing.
+## Privacy
 
-Ring plus arches rather than loose bands, because a band joined only at the
-midline is cantilevered and flexes, and an electrode that moves is an electrode
-whose data cannot be compared between sessions.
+**Scans and generated head geometry are git-ignored.** A head scan is
+identifiable biometric data about a named person, and this repository is public.
+What lives here is the code that generates results, not the results.
 
-It is generated, not drawn. `nsc_fit` fits the head, writes
-`cad/head_params.scad`, and the frame sweeps its bands along those paths and
-hollows its inside to the same ellipsoid. Re-measure a different person, re-run
-the fit, and the frame changes shape to match them.
+The renders above use an untextured surface for the same reason.
 
-Print it whole, ring down, with supports under the arches. Do not split it at
-the midline or the coronal plane: each arch lies exactly in one of those
-planes, so either cut runs down an arch lengthwise instead of across it.
+---
 
-**Head form** — a hollow shell of the same fitted head (`make headform`), for
-dry-fitting the frame, routing cable and photographing the build without
-booking a person for an hour. Set `form_scale = 0.5` in the file for a desk
-model; at 1.0 it is a real print of a real head and will take most of a spool.
-
-**Electrode holder** — a flat spider spring: an annular disc cut by three
-spiral slots, so the hub can travel out of plane while the rim stays sewn to
-the fabric. One flat part, prints with no supports, stiffness set almost
-entirely by `spring_t`. Print in PETG at 0.2 mm layers.
-
-**Sensor puck** — carries the PPG board with a raised light shroud. PPG works
-by measuring light reflected from blood under the skin, so ambient light
-reaching the photodiode adds straight into the signal — a light leak at the
-temple looks exactly like a weak pulse, and no filtering downstream separates
-the two.
-
-**Electronics pod** — two-piece shell for the ESP32, SD card and LiPo, sitting
-low at the back of the head where a hard helmet has clearance and the mass does
-not lever on the neck. The underside is relieved to the head's local radius.
-Two rules it is built around: the USB port and SD slot are reachable without
-opening the shell, because if reflashing means disassembly then nobody
-reflashes; and it uses M2 heat-set inserts, because a printed thread strips out
-after about five open-close cycles and this gets opened constantly.
-
-## Before printing anything
-
-`cad/params.scad` holds the print tolerances. They were written for a
-particular printer and filament and **have not been verified on the team's
-machine** — print a fit-test coupon and adjust `clearance` and `tight_fit`
-before committing to a full set of parts. Board and battery dimensions in the
-same file are from datasheets; measure the actual hardware when it arrives.
-
-The head radius used for the pod's curved underside defaults to 95 mm. Use the
-`c` value from the `nsc_fit` output for the subject the pod is being built for.
-
-## Printing a size run
-
-```bash
-make sizes
-```
-
-Four frames at +4/+12/+20/+28% on the base measurements, each with its
-circumference in millimetres raised on the pod pad so they stay tellable apart
-once they are off the bed. Print all four, keep whichever sits right.
-
-This is deliberate, not indecision. A tape on the scalp reads 575 mm; a convex
-hull round the LiDAR scan at ring height reads about 790 mm. The difference is
-hair, and how far hair compresses under a cap is the number that decides fit.
-Nothing in the scan predicts it, so measuring harder will not help — printing
-four and trying them will.
-
-## Renders
-
-```bash
-make renders        # four stills: hero, frame, montage, parts
-make animation      # turntable and fit clips
-```
-
-Purdue old gold on a dark cove, rendered in Cycles. `THEME=light` swaps to a
-light background for print, `SAMPLES=256` for a final pass.
-
-These are for the poster, the report and the deck. The OpenSCAD previews stay —
-every geometry test in `tests/` renders through OpenSCAD, and that is what
-caught the index nub buried inside its own boss.
-
+<div align="center">
+<sub>Built for the AAMED Neural Space Cap team, Purdue VIP.<br>
+Design decisions and the reasoning behind them are in <a href="docs/DESIGN_NOTES.md">docs/DESIGN_NOTES.md</a>.</sub>
+</div>
