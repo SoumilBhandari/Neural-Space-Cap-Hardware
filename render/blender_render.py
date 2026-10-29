@@ -99,6 +99,23 @@ def main() -> None:
         render_still(OUT / "sizes.png")
         print("rendered sizes")
 
+    if args.mode == "gif":
+        # PNG frames rather than video: there is no ffmpeg on this machine and
+        # a GIF is what a README can actually show inline anyway.
+        reset_scene()
+        configure_render(args.anim_samples)
+        scene = bpy.context.scene
+        scene.render.resolution_x, scene.render.resolution_y = 640, 480
+        objects, centre, radius = build("scan")
+        studio(radius)
+        turntable(objects, centre, args.frames)
+        frames = OUT / "gif_frames"
+        frames.mkdir(parents=True, exist_ok=True)
+        scene.render.image_settings.file_format = "PNG"
+        scene.render.filepath = str(frames) + "/f"
+        bpy.ops.render.render(animation=True)
+        print("rendered gif frames")
+
     if args.mode == "turntable":
         reset_scene()
         configure_render(args.anim_samples)
@@ -122,7 +139,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="blender_render")
     # One animation per invocation. Rendering two FFmpeg outputs from a single
     # Blender session leaves the second file an empty container.
-    parser.add_argument("--mode", default="stills", choices=("stills", "turntable", "fit", "sizes", "scan"))
+    parser.add_argument("--mode", default="stills", choices=("stills", "turntable", "fit", "sizes", "scan", "gif"))
     parser.add_argument("--theme", default="dark", choices=tuple(THEMES))
     parser.add_argument("--samples", type=int, default=96)
     parser.add_argument("--anim-samples", type=int, default=48)

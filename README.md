@@ -1,17 +1,40 @@
 <div align="center">
 
-# Neural Space Cap — Hardware
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1d2024,50:6b5630,100:B08C4F&height=190&section=header&text=Neural%20Space%20Cap&fontSize=58&fontColor=F5E9D0&fontAlignY=36&desc=hardware%20%C2%B7%20a%20printable%20EEG%20cap%20generated%20from%20a%20head&descAlignY=58&descSize=18" width="100%" alt="Neural Space Cap"/>
 
-**A 3D-printed EEG cap generated from a LiDAR scan of one specific head.**
+<a href="https://github.com/SoumilBhandari/Neural-Space-Cap-Hardware">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=19&duration=3200&pause=700&color=B08C4F&center=true&vCenter=true&width=720&height=46&lines=Three%20tape%20measurements%20in%2C%20a%20printable%20EEG%20cap%20out.%3BOr%20a%20LiDAR%20scan%2C%20and%20it%20fits%20one%20specific%20head.%3BEvery%20electrode%20on%20its%20International%2010-20%20site.%3BWatertight%20STLs%2C%20print%20feet%2C%20and%20tests%20that%20measure%20them." alt="What this does"/>
+</a>
 
-Three tape measurements, or a phone scan, in. Electrode positions, a marking
-template, and print-ready STLs out.
+<br/>
 
-<img src="docs/images/cap_on_head.png" width="620" alt="The cap frame fitted to a scanned head">
+<img src="https://img.shields.io/badge/montage-10--20%20standard-B08C4F?style=for-the-badge&labelColor=1d2024"/>
+<img src="https://img.shields.io/badge/output-watertight%20STL-B08C4F?style=for-the-badge&labelColor=1d2024"/>
+<img src="https://img.shields.io/badge/tests-39%20passing-3f7d4e?style=for-the-badge&labelColor=1d2024"/>
+<img src="https://img.shields.io/badge/printer-Bambu%20H2D-B08C4F?style=for-the-badge&labelColor=1d2024"/>
 
-Purdue VIP · AAMED · companion to
-**[Neural-Space-Cap-Software](https://github.com/SoumilBhandari/Neural-Space-Cap-Software)**
-(firmware and signal processing)
+<br/><br/>
+
+<img src="https://skillicons.dev/icons?i=python,blender,git,github&theme=dark" alt="Python, Blender, Git, GitHub"/>
+&nbsp;&nbsp;
+<img src="https://img.shields.io/badge/OpenSCAD-f9d72c?style=flat-square&logo=openscad&logoColor=black" height="48"/>
+
+<br/><br/>
+
+<img src="docs/images/turntable.gif" width="460" alt="The fitted cap, turning"/>
+
+<br/>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/cap_on_head.png"/>
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/cap_on_head_light.png"/>
+  <img src="docs/images/cap_on_head.png" width="620" alt="The cap frame fitted to a scanned head"/>
+</picture>
+
+<br/>
+
+**Purdue VIP · AAMED** &nbsp;·&nbsp;
+companion to **[Neural-Space-Cap-Software](https://github.com/SoumilBhandari/Neural-Space-Cap-Software)**
 
 </div>
 
