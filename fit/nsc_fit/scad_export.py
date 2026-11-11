@@ -192,6 +192,27 @@ def _vector_list(points) -> str:
     return "[" + ", ".join(_vector(p) for p in points) + "]"
 
 
+# Dimensions the scan build needs that are otherwise owned by cad/params.scad.
+# They are repeated here because they decide where things can go, not just how
+# big they are: a socket whose bore dips below the plane the frame is trimmed
+# at loses its bottom, so its position depends on its radius.
+SOCKET_R_MM = (10.0 + 2 * 2.0 + 2 * 0.30 + 0.12) / 2      # electrode socket bore
+PPG_SEAT_R_MM = (15.8 + 2 * 2.0 + 2 * 0.30) / 2           # PPG puck seat bore
+POD_PAD_HALF_MM = 23.0                                    # pod pad, half its length
+MIN_WALL_MM = 1.6
+
+# Swept radius of each band. Deliberately all different. Two tubes of the same
+# radius meeting at a shared centreline point touch along a curve instead of
+# crossing, and a boolean engine resolves a touch into coincident faces, which
+# is one of the things a slicer reports as non-manifold edges.
+BAND_RADII_MM = {"lateral": 5.5, "sagittal": 5.3, "coronal": 5.1, "frontal": 5.2, "parietal": 5.2}
+
+# How much of the ring's underside is sliced off to give it a flat to print
+# on. At 3.8 mm below the centreline every part of the tube above the cut is
+# within 45 degrees of vertical, so the ring needs no support at all.
+RING_FLAT_MM = 3.8
+
+
 def write_scan_params(
     scan,
     head: Head,
@@ -200,108 +221,182 @@ def write_scan_params(
     stl_name: str = "scan_head.stl",
     standoff_mm: float = 4.0,
 ) -> Path:
-    """Write band paths and mounts lying on her scanned surface.
+    """Write the scan-fitted frame's geometry: band meshes, mounts and floor.
 
     The 10-20 layout still comes from the fitted ellipsoid, because the
     standard is defined by arc percentages between bony landmarks and nothing
-    on this scan marks them. What changes is where those positions land: each
-    site's *direction* from the head centre is taken from the ellipsoid, and
-    its *position* is read off her scanned surface along that direction.
+    on this scan marks them. Each site's *direction* from the head centre is
+    taken from the ellipsoid and its *position* is read off her scanned
+    surface along that direction.
 
-    So the montage keeps its standard geometry — O1 is still where O1 belongs
-    relative to the rest — while the frame that carries it follows her actual
-    contour, including the parting where her hair is thicker on one side.
+    Two things here exist purely so the part prints.
+
+    The ring is laid out in a horizontal plane and trimmed flat underneath, so
+    it sits on the build plate along its whole length. Projected the same way
+    as the arches it wandered up and down the head, touched the plate at one
+    point, and had to be printed in mid-air.
+
+    Each band is written as a single closed tube mesh. Sweeping them in
+    OpenSCAD as a chain of hulled spheres left neighbouring hulls sharing
+    exactly the same sphere, and those coincident surfaces survive the union
+    as doubled vertices.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    build = (path.parent / Path(stl_name).parent).resolve()
+    build.mkdir(parents=True, exist_ok=True)
+    rel = Path(stl_name).parent
 
-    # Both models are measured from a centre the same distance below the
-    # crown, so a direction means the same thing in each.
     ellipsoid_centre = np.array([0.0, 0.0, head.c_mm - 110.0])
+    reach = standoff_mm + CHORD_MARGIN
 
     def onto_scan(point: np.ndarray) -> np.ndarray:
-        """Her surface in this direction, standing off by the liner gap.
-
-        The bands have to clear the inflated surface they are hollowed
-        against, not sit on it. A band swept at 11 mm about a centreline lying
-        on the surface, minus a 4 mm inflation, keeps 1.5 mm of material — and
-        the scan is bumpier than that, so the bands come out chewed into
-        fragments. Offsetting the centreline by the same gap gives the band
-        its full radius back.
-        """
+        """Her surface in this direction, standing off by the liner gap."""
         direction = np.asarray(point) - ellipsoid_centre
         direction = direction / np.linalg.norm(direction)
-        surface = scan.surface_towards(direction)
-        return surface + direction * (standoff_mm + CHORD_MARGIN) - scan.centre
+        return scan.surface_towards(direction) + direction * reach - scan.centre
 
-    bands = {
-        "lateral": _project(_sample(_loop_of(head, sites), 0.0, 1.0, closed=True), onto_scan),
-        "sagittal": _project(
-            _sample(head.sagittal_arc(), MIDLINE["Fpz"], MIDLINE["Oz"]), onto_scan
-        ),
-        "coronal": _project(
-            _sample(head.coronal_arc(), CORONAL["T7"], 1.0 - CORONAL["T7"]), onto_scan
-        ),
-        "frontal": _project(
-            _surface_path(head, [sites[n].xyz_mm for n in ("F7", "F3", "Fz", "F4", "F8")]),
-            onto_scan,
-        ),
-        "parietal": _project(
-            _surface_path(head, [sites[n].xyz_mm for n in ("P7", "P3", "Pz", "P4", "P8")]),
-            onto_scan,
-        ),
+    # --- the ring, in a plane --------------------------------------------
+    loop = _loop_of(head, sites)
+    z_ring = float(np.mean([onto_scan(loop.at_fraction(f))[2] for f in np.linspace(0, 1, 60, endpoint=False)]))
+    floor_z = z_ring - RING_FLAT_MM
+
+    def on_ring(phi: float) -> np.ndarray:
+        return scan.point_at_height(phi, z_ring, standoff=reach)
+
+    ring = np.array([on_ring(2 * math.pi * j / 180) for j in range(180)])
+
+    def azimuth(point: np.ndarray) -> float:
+        return math.atan2(float(point[1]), float(point[0]))
+
+    def arch(points: np.ndarray) -> np.ndarray:
+        """An arch path whose two ends are carried down into the ring."""
+        pts = np.array([onto_scan(p) for p in points])
+        pts = pts[pts[:, 2] > z_ring + 1.0]            # drop anything at or below the ring
+        return np.vstack([on_ring(azimuth(pts[0])), pts, on_ring(azimuth(pts[-1]))])
+
+    arches = {
+        "sagittal": arch(_sample(head.sagittal_arc(), MIDLINE["Fpz"], MIDLINE["Oz"])),
+        "coronal": arch(_sample(head.coronal_arc(), CORONAL["T7"], 1.0 - CORONAL["T7"])),
+        "frontal": arch(_surface_path(head, [sites[n].xyz_mm for n in ("F7", "F3", "Fz", "F4", "F8")])),
+        "parietal": arch(_surface_path(head, [sites[n].xyz_mm for n in ("P7", "P3", "Pz", "P4", "P8")])),
     }
 
-    # The frame trims off anything hanging below its own lowest band. On the
-    # ellipsoid that height was a constant above the landmark plane, but scan
-    # coordinates are measured from a centre inside the skull, so a fixed
-    # number there slices straight through the middle of the head and cuts the
-    # ring into loose pieces.
-    lowest = min(float(p[2]) for band in bands.values() for p in band)
+    files = []
+    for name, pts, closed in [("lateral", ring, True)] + [(n, a, False) for n, a in arches.items()]:
+        verts, faces = tube_mesh(pts, BAND_RADII_MM[name], closed=closed)
+        write_binary_stl(build / f"band_{name}.stl", verts, faces)
+        files.append(str(rel / f"band_{name}.stl"))
+
+    def lifted(point: np.ndarray, clearance: float) -> np.ndarray:
+        """Slide a mount up the head until its bore clears the floor.
+
+        A socket centred on the ring has its lower third below the plane the
+        frame is trimmed at, which would leave an open C where a closed socket
+        should be. Moving it a few millimetres up the same meridian keeps the
+        bore whole. Fpz moves about 5 mm, which is inside the placement
+        tolerance of the 10-20 system itself.
+        """
+        if point[2] >= floor_z + clearance:
+            return point
+        return scan.point_at_height(azimuth(point), floor_z + clearance, standoff=reach)
 
     lines = [
         "// Generated by nsc_fit from a LiDAR scan — do not edit.",
-        "// Band paths and mounts lie on the scanned surface, not on an ellipsoid.",
+        "// Bands are tube meshes on the scanned surface; the ring is planar.",
         "",
         f'scan_stl = "{stl_name}";',
-        f"scan_trim_z = {lowest - 14.0:.3f};",
+        f"scan_trim_z = {floor_z:.3f};",
         f"head_axes = [{head.a_mm:.3f}, {head.b_mm:.3f}, {head.c_mm:.3f}];",
+        "band_files = [" + ", ".join(f'"{f}"' for f in files) + "];",
         "",
+        "// [name, position, [rot_x, rot_y, rot_z], phase_one]",
     ]
-    for name, points in bands.items():
-        lines.append(f"band_{name} = {_vector_list(points)};")
-    lines.append("")
-
-    # Sacrificial print feet. The frame is a swept tube on a curved path, so
-    # nothing on it is flat: laid ring-down it touches the plate at a single
-    # tangent point with 0.0 mm2 of first-layer area, which no brim can rescue
-    # because there is nothing for the brim to attach to. Feet give it real
-    # footprint, and snap off at a deliberately thin neck.
-    lines.append("// Sacrificial feet: contact points chosen round the ring.")
-    lines.append(f"feet = {_vector_list(_foot_points(bands['lateral']))};")
-    lines.append("")
-
-    lines.append("// [name, position, [rot_x, rot_y, rot_z], phase_one]")
     entries = []
     for name in MONTAGE_V1:
-        point = onto_scan(sites[name].xyz_mm)
-        elevation, azimuth = _scan_normal_rotation(scan, point)
+        point = lifted(onto_scan(sites[name].xyz_mm), SOCKET_R_MM + MIN_WALL_MM)
+        elevation, azimuth_deg = _scan_normal_rotation(scan, point)
         entries.append(
-            f'["{name}", {_vector(point)}, [0, {elevation:.3f}, {azimuth:.3f}], '
+            f'["{name}", {_vector(point)}, [0, {elevation:.3f}, {azimuth_deg:.3f}], '
             f"{1 if name in PHASE_1 else 0}]"
         )
     lines.append("mounts = [\n    " + ",\n    ".join(entries) + "\n];")
     lines.append("")
 
-    temple = onto_scan(temple_site(head, sites).xyz_mm)
-    elevation, azimuth = _scan_normal_rotation(scan, temple)
-    lines.append(f"ppg_mount = [{_vector(temple)}, [0, {elevation:.3f}, {azimuth:.3f}]];")
+    temple = lifted(onto_scan(temple_site(head, sites).xyz_mm), PPG_SEAT_R_MM + MIN_WALL_MM)
+    elevation, azimuth_deg = _scan_normal_rotation(scan, temple)
+    lines.append(f"ppg_mount = [{_vector(temple)}, [0, {elevation:.3f}, {azimuth_deg:.3f}]];")
 
-    pod = onto_scan(_loop_of(head, sites).at_fraction(0.5))
-    elevation, azimuth = _scan_normal_rotation(scan, pod)
-    lines.append(f"pod_anchor = [{_vector(pod)}, [0, {elevation:.3f}, {azimuth:.3f}]];")
+    pod = lifted(onto_scan(loop.at_fraction(0.5)), POD_PAD_HALF_MM + 0.5)
+    elevation, azimuth_deg = _scan_normal_rotation(scan, pod)
+    lines.append(f"pod_anchor = [{_vector(pod)}, [0, {elevation:.3f}, {azimuth_deg:.3f}]];")
 
     path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def tube_mesh(path: np.ndarray, radius: float, closed: bool, segments: int = 24):
+    """A tube of circular section along a path, as one closed manifold mesh.
+
+    The section is oriented against the direction out from the origin rather
+    than carried along the path, so there is no accumulated twist to reconcile
+    where a closed loop meets itself. Open tubes get flat end caps.
+    """
+    path = np.asarray(path, dtype=float)
+    n = len(path)
+    verts = []
+    for k in range(n):
+        if closed:
+            tangent = path[(k + 1) % n] - path[k - 1]
+        else:
+            tangent = path[min(k + 1, n - 1)] - path[max(k - 1, 0)]
+        tangent = tangent / np.linalg.norm(tangent)
+        outward = path[k] - np.dot(path[k], tangent) * tangent
+        outward = outward / np.linalg.norm(outward)
+        side = np.cross(tangent, outward)
+        for j in range(segments):
+            a = 2 * math.pi * j / segments
+            verts.append(path[k] + radius * (math.cos(a) * outward + math.sin(a) * side))
+
+    faces = []
+    spans = n if closed else n - 1
+    for k in range(spans):
+        k1 = (k + 1) % n
+        for j in range(segments):
+            j1 = (j + 1) % segments
+            a, b = k * segments + j, k * segments + j1
+            c, d = k1 * segments + j, k1 * segments + j1
+            faces += [[a, c, d], [a, d, b]]
+
+    if not closed:
+        for end, ring_start in ((0, 0), (n - 1, (n - 1) * segments)):
+            centre = len(verts)
+            verts.append(path[end])
+            for j in range(segments):
+                j1 = (j + 1) % segments
+                tri = [centre, ring_start + j, ring_start + j1]
+                faces.append(tri if end == 0 else tri[::-1])
+
+    verts, faces = np.array(verts), np.array(faces)
+    a, b, c = verts[faces[:, 0]], verts[faces[:, 1]], verts[faces[:, 2]]
+    if float(np.sum(np.einsum("ij,ij->i", a, np.cross(b, c)))) < 0:
+        faces = faces[:, ::-1].copy()
+    return verts, faces
+
+
+def write_binary_stl(path: str | Path, verts: np.ndarray, faces: np.ndarray) -> Path:
+    import struct
+
+    path = Path(path)
+    with path.open("wb") as fh:
+        fh.write(b"nsc band".ljust(80, b"\0"))
+        fh.write(struct.pack("<I", len(faces)))
+        for f in faces:
+            p0, p1, p2 = verts[f[0]], verts[f[1]], verts[f[2]]
+            normal = np.cross(p1 - p0, p2 - p0)
+            length = np.linalg.norm(normal)
+            normal = normal / length if length else np.zeros(3)
+            fh.write(struct.pack("<12fH", *normal, *p0, *p1, *p2, 0))
     return path
 
 
@@ -350,27 +445,3 @@ def _scan_normal_rotation(scan, point: np.ndarray) -> tuple[float, float]:
     elevation = math.degrees(math.acos(float(np.clip(normal[2], -1.0, 1.0))))
     azimuth = math.degrees(math.atan2(float(normal[1]), float(normal[0])))
     return elevation, azimuth
-
-
-# Feet closer together than this are redundant; further apart and the part
-# rocks between them.
-FOOT_SPACING_MM = 45.0
-MAX_FEET = 8
-
-
-def _foot_points(ring: np.ndarray) -> list:
-    """Low points around the ring to stand the print on.
-
-    Picked lowest-first and thinned by spacing, so the feet land where the
-    part already hangs closest to the plate and are spread far enough apart to
-    stop it rocking.
-    """
-    order = np.argsort(ring[:, 2])
-    chosen: list[np.ndarray] = []
-    for index in order:
-        point = ring[index]
-        if all(np.linalg.norm(point[:2] - other[:2]) >= FOOT_SPACING_MM for other in chosen):
-            chosen.append(point)
-        if len(chosen) >= MAX_FEET:
-            break
-    return chosen

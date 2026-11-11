@@ -16,6 +16,7 @@ include <params.scad>
 shroud_h    = 3.0;     // how far the rim stands proud of the board face
 body_d      = ppg_d + 2 * wall + 2 * clearance;
 body_h      = ppg_h + floor_t + shroud_h;
+cone_h      = (ppg_d + clearance - ppg_window_d) / 2;
 
 module sensor_puck() {
     difference() {
@@ -30,6 +31,13 @@ module sensor_puck() {
 
         // Optical window through to the skin.
         translate([0, 0, -1]) cylinder(d = ppg_window_d, h = floor_t + shroud_h + 2);
+
+        // The step from the board cavity down to the window is cut as a 45
+        // degree cone. The puck prints ears-down, which turns that step into
+        // a ceiling, and a flat ceiling there is a ring of unsupported
+        // filament. The board still lands on the rim of the cone.
+        translate([0, 0, floor_t + shroud_h - cone_h])
+            cylinder(d1 = ppg_window_d, d2 = ppg_d + clearance, h = cone_h + 0.01);
 
         // Cable exit with a strain-relief channel. Every wire that failed last
         // semester failed where it left a connector unsupported.
@@ -55,4 +63,6 @@ module sew_ears() {
     }
 }
 
-sensor_puck();
+// Exported in print orientation: back face and sew ears flat on the bed, skin
+// side up. Printed the other way up the ears hang in mid air.
+translate([0, 0, body_h]) rotate([180, 0, 0]) sensor_puck();

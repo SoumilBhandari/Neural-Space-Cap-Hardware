@@ -3,7 +3,7 @@
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:1d2024,50:6b5630,100:B08C4F&height=190&section=header&text=Neural%20Space%20Cap&fontSize=58&fontColor=F5E9D0&fontAlignY=36&desc=hardware%20%C2%B7%20a%20printable%20EEG%20cap%20generated%20from%20a%20head&descAlignY=58&descSize=18" width="100%" alt="Neural Space Cap"/>
 
 <a href="https://github.com/SoumilBhandari/Neural-Space-Cap-Hardware">
-  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=19&duration=3200&pause=700&color=B08C4F&center=true&vCenter=true&width=720&height=46&lines=Three%20tape%20measurements%20in%2C%20a%20printable%20EEG%20cap%20out.%3BOr%20a%20LiDAR%20scan%2C%20and%20it%20fits%20one%20specific%20head.%3BEvery%20electrode%20on%20its%20International%2010-20%20site.%3BWatertight%20STLs%2C%20print%20feet%2C%20and%20tests%20that%20measure%20them." alt="What this does"/>
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=19&duration=3200&pause=700&color=B08C4F&center=true&vCenter=true&width=720&height=46&lines=Three%20tape%20measurements%20in%2C%20a%20printable%20EEG%20cap%20out.%3BOr%20a%20LiDAR%20scan%2C%20and%20it%20fits%20one%20specific%20head.%3BEvery%20electrode%20on%20its%20International%2010-20%20site.%3BWatertight%20STLs%2C%20sliced%20and%20checked%20before%20they%20ship." alt="What this does"/>
 </a>
 
 <br/>
@@ -75,7 +75,7 @@ tightly it is worn.
 | **Montage** | Fpz, F3, F4, C3, Cz, C4, P3, P4 — International 10-20 |
 | **Phase one** | F4, Cz, P3 stand 2.5 mm proud so you can find them by hand |
 | **Fit** | Built on the scanned surface, not a scaled generic head |
-| **Output** | Watertight single-shell STLs with sacrificial print feet |
+| **Output** | Watertight single-shell STLs, checked the way a slicer sees them |
 | **Also** | 1:1 marking template, montage map, 3D positions CSV |
 
 ---
@@ -150,12 +150,12 @@ and no measurement predicts it. So the answer is not to measure harder:
 
 <div align="center"><img src="docs/images/size_run.png" width="680" alt="Four sizes"></div>
 
-| ring circumference | hair allowance | footprint | material |
+| ring circumference | hair allowance | footprint | sliced with supports |
 |---|---|---|---|
-| 620 mm | 7.2 mm | 214 × 222 mm | ~191 cm³ |
-| **660 mm** | **13.5 mm** | **225 × 235 mm** | **~203 cm³** |
-| **700 mm** | **19.9 mm** | **237 × 247 mm** | **~216 cm³** |
-| 740 mm | 26.3 mm | 245 × 260 mm | ~228 cm³ |
+| 620 mm | 7.2 mm | 207 × 217 mm | 128 g |
+| **660 mm** | **13.5 mm** | **219 × 229 mm** | **137 g** |
+| **700 mm** | **19.9 mm** | **231 × 242 mm** | **145 g** |
+| 740 mm | 26.3 mm | 243 × 254 mm | 154 g |
 
 Same head, four hair allowances. Print **660 and 700** first — they bracket the
 likeliest fit. Each carries its circumference raised on the pod pad so they stay
@@ -165,23 +165,30 @@ tellable apart off the plate.
 
 ## Printing
 
-<img src="docs/images/print_prep.png" width="100%" alt="Why generated CAD does not print">
+<img src="docs/images/print_prep.png" width="100%" alt="First layer area, doubled vertices and the size run">
 
 **The frame is a swept tube on a curved path, so nothing on it is flat.** Laid
 ring-down it met the build plate at a single tangent point with **0.0 mm² of
 first-layer area**. No brim can rescue that, because a brim needs something to
 hold onto. This is the ordinary reason a generated model refuses to print.
 
-Eight sacrificial feet now give it **2032 mm²** across well-spread pads, cut flat
-against the same plane that trims the frame, with the part's centre of mass
-inside them. Snip the necks, sand the stubs.
+The ring is now a planar loop with its bottom 3.8 mm cut flat, which gives
+**3160 mm²** of first layer as one continuous track round the head. No feet to
+snip.
+
+The first STLs also made slicers complain about non-manifold edges. The scan
+head was being exported inside out, so subtracting it left half the frame's
+vertices doubled. That is fixed at the source, and `make scan` now refuses to
+finish unless the mesh is one watertight shell after welding by position, the
+way a slicer reads it. All four sizes and every small part are sliced in
+PrusaSlicer before they go out.
 
 Settings for a Bambu H2D with a 0.4 mm nozzle are in
 **[docs/PRINTING.md](docs/PRINTING.md)**. The three that matter:
 
 > **Chamber off** — PETG strings and heat-creeps in a warm chamber.
 > **Tree supports, build-plate-only** — otherwise they grow *inside* the dome.
-> **Print as exported** — the feet are only flat in that orientation.
+> **Print as exported** — ring down on its flat, puck ears-down.
 
 <div align="center"><img src="docs/images/printed_parts.png" width="640" alt="The small printed parts"></div>
 

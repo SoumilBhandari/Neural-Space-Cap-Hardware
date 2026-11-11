@@ -142,7 +142,17 @@ class ScannedHead:
             # around the rim and the solid stops being manifold.
             faces.append([skirt + (j + 1) % PHI_STEPS, floor, skirt + j])
 
-        return np.array(verts), np.array(faces)
+        verts, faces = np.array(verts), np.array(faces)
+
+        # Make sure the solid is wound outward. Every face being consistent
+        # with its neighbours is not enough: a closed mesh wound uniformly
+        # inside-out passes every edge-pairing check and still has negative
+        # volume, and subtracting a negative solid in a boolean engine leaves
+        # doubled, coincident sheets all over the result. That is exactly what
+        # a slicer then reports as non-manifold edges.
+        if _signed_volume(verts, faces) < 0:
+            faces = faces[:, ::-1].copy()
+        return verts, faces
 
     def write_stl(self, path: str | Path, gap_mm: float) -> Path:
         """Write her surface, inflated by ``gap_mm``, as a binary STL.
@@ -171,6 +181,37 @@ class ScannedHead:
                 n = n / length if length else np.zeros(3)
                 fh.write(struct.pack("<12fH", *n, *p0, *p1, *p2, 0))
         return path
+
+    def point_at_height(self, phi: float, z_rel: float, standoff: float = 0.0) -> np.ndarray:
+        """Point at azimuth ``phi`` whose height above the centre is ``z_rel``.
+
+        Returned relative to the head centre, pushed out along the surface
+        direction by ``standoff``. This is what lets the ring be laid out in a
+        horizontal plane: a planar ring has a flat underside that can sit on a
+        build plate, where one that wanders up and down the head has to be
+        printed in mid-air on supports.
+
+        Height falls steadily from crown to rim, so the angle is found by
+        bisection. Below the modelled rim the outline is carried straight down.
+        """
+        def height(theta: float) -> float:
+            return (self._lookup(theta, phi) + standoff) * math.cos(theta)
+
+        lo, hi = 0.0, math.radians(MAX_THETA_DEG)
+        if height(hi) > z_rel:           # asked for somewhere below the rim
+            r = self._lookup(hi, phi) + standoff
+            return np.array([r * math.sin(hi) * math.cos(phi),
+                             r * math.sin(hi) * math.sin(phi), z_rel])
+        for _ in range(48):
+            mid = (lo + hi) / 2
+            if height(mid) > z_rel:
+                lo = mid
+            else:
+                hi = mid
+        theta = (lo + hi) / 2
+        r = self._lookup(theta, phi) + standoff
+        return r * np.array([math.sin(theta) * math.cos(phi),
+                             math.sin(theta) * math.sin(phi), math.cos(theta)])
 
     def ring_circumference(self, theta_deg: float = 78.0) -> float:
         """Circumference of the surface at the height the lateral ring sits."""
@@ -209,6 +250,12 @@ class ScannedHead:
         """Unit direction of ``point`` as seen from ``origin``."""
         d = np.asarray(point, dtype=float) - np.asarray(origin, dtype=float)
         return d / np.linalg.norm(d)
+
+
+def _signed_volume(verts: np.ndarray, faces: np.ndarray) -> float:
+    """Volume enclosed by a triangle mesh; negative means it is inside-out."""
+    a, b, c = verts[faces[:, 0]], verts[faces[:, 1]], verts[faces[:, 2]]
+    return float(np.sum(np.einsum("ij,ij->i", a, np.cross(b, c))) / 6.0)
 
 
 def symmetrize(radius: np.ndarray) -> np.ndarray:

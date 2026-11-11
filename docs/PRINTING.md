@@ -24,21 +24,44 @@ This is not optional politeness — the socket and the holder hub were
 previously the *same* nominal diameter, which is not a press fit but a jam,
 and nothing short of trial fitting would have caught it.
 
-## Why the frame has feet
+## Why the ring is flat
 
-The frame is a swept tube following a curved path, so no surface on it is
-flat. Laid ring-down it meets the plate at a single tangent point with
+The frame is a swept tube following a curved path, so nothing on it started
+out flat. Laid ring-down it met the plate at a single tangent point with
 **0.0 mm² of first-layer area**, which no brim can save because there is
 nothing for a brim to hold on to. That is the usual reason a generated model
 simply refuses to print.
 
-It now carries eight sacrificial feet: 18 mm pads cut flat against the same
-plane that trims the frame, tapering to a 3.5 mm neck. That gives
-**2032 mm² of first layer** across eight well-spread pads, and the part's
-centre of mass sits inside them, so it cannot rock or tip.
+The first fix was eight sacrificial feet. They worked on paper and added
+their own problems: thin necks, pads sharing faces with the band, and a ring
+that still hung in the air between them.
 
-Snip the necks with flush cutters after printing and sand the eight stubs.
-They are on the underside of the ring where nothing touches the head.
+The ring is now a planar loop at one height, and the bottom 3.8 mm of it is
+cut off flat. That flat is the first layer: **about 3160 mm²** on the 660 mm
+frame, one continuous track all the way round the head, 4 to 8 mm wide. Nothing to
+snip, nothing to sand, and the tube wall leaves the bed at 45 degrees so the
+ring itself needs no support.
+
+## Why it slices clean now
+
+The earlier STLs made slicers report non-manifold edges. Three causes, all
+fixed and all tested:
+
+- **The scan head was exported inside out.** Its signed volume was negative,
+  so subtracting it from the bands left 45,689 of the frame's 89,764 vertices
+  doubled up on top of another one. A slicer welds vertices by position, and
+  after welding those became edges shared by four triangles. The exporter now
+  flips the winding whenever the volume comes out negative.
+- **Surfaces touching exactly.** Bands of the same diameter crossing, a boss
+  ending on the same plane as its collar, a badge starting on the pad face.
+  Each band is now one closed tube mesh with its own radius, and every
+  feature either overlaps its neighbour properly or stays clear of it.
+- **ASCII STL.** Six significant digits is enough to pull welded vertices
+  apart. Everything is written as binary STL.
+
+`make scan` now refuses to finish unless the result is one watertight shell
+after position welding, which is how a slicer sees it. See
+`fit/nsc_fit/meshcheck.py`.
 
 ## Settings
 
@@ -61,8 +84,10 @@ They are on the underside of the ring where nothing touches the head.
 chamber makes PETG string and raises the odds of heat creep in the hotend.
 Chamber heating is for ABS, ASA and PC.
 
-**Tree supports, build-plate-only.** 16% of the surface overhangs past 45
-degrees: the undersides of both arches and the socket bosses. Organic
+**Tree supports, build-plate-only.** About 10% of the surface overhangs past
+45 degrees, down from 16%: the undersides of the arches near the crown and
+the socket bosses. A dome printed ring-down cannot avoid that, so the slicer
+will warn about overhangs until supports are switched on. Organic
 supports touch far less of a curved tube and peel off it much more cleanly.
 Build-plate-only stops them growing inside the dome, where you cannot reach
 to remove them.
@@ -83,33 +108,37 @@ size is dimensioned as a whole multiple of extrusion width or layer height:
 | feature | value | why |
 |---------|-------|-----|
 | holder flexure | 0.84 mm = 2 lines | asking for 0.80 gets 0.84 anyway, and stiffness goes as thickness cubed — the spring would have come out 16% firmer than calculated |
-| foot pad | 0.60 mm = 3 layers | no partial top layer |
-| foot neck | 2.52 mm = 6 lines | flush cutters go through in one squeeze; 3.5 mm took real force and risked marking the band |
+| ring flat | 3.8 mm = 19 layers | cut on a layer boundary so the first layer is a full-width track |
+| coupon engraving | 0.6 mm = 3 layers | no partial layer at the bottom of the text |
 
 If you change nozzle or layer height, change `nozzle_d`, `line_w` and
 `layer_h` at the top of `cad/params.scad` and those features follow.
 
 ## Orientation
 
-Print it exactly as exported — ring down, feet on the plate. The feet are cut
-flat in that orientation and in no other. If the slicer auto-orients it, undo
-that.
+Print everything exactly as exported. The frame goes ring down on its flat.
+The sensor puck is exported ears-down, skin side up, so its sew ears sit on
+the bed. If the slicer auto-orients a part, undo that.
 
 ## What to expect
 
-| size | hair allowance | footprint | solid volume |
-|------|----------------|-----------|--------------|
-| 620 mm | 7.2 mm | 215 x 223 mm | 191 cm³ |
-| 660 mm | 13.5 mm | 225 x 236 mm | 203 cm³ |
-| 700 mm | 19.9 mm | 237 x 248 mm | 216 cm³ |
-| 740 mm | 26.3 mm | 247 x 261 mm | 228 cm³ |
+| size | hair allowance | footprint | solid volume | sliced, with supports |
+|------|----------------|-----------|--------------|-----------------------|
+| 620 mm | 7.2 mm | 207 x 217 mm | 91 cm³ | 128 g |
+| 660 mm | 13.5 mm | 219 x 229 mm | 97 cm³ | 137 g |
+| 700 mm | 19.9 mm | 231 x 242 mm | 102 cm³ | 145 g |
+| 740 mm | 26.3 mm | 243 x 254 mm | 108 cm³ | 154 g |
 
-Those are solid volumes. With 4 walls and 15% infill the part itself comes to
-roughly 120 cm³, about 150 g, and tree supports add a good fraction again on
-top. **Budget 6 to 9 hours each at 0.4 mm and 0.2 mm layers** — let the
-slicer give you the real figure before you commit.
+The last column is a real slice of each file: PrusaSlicer, 0.2 mm layers,
+4 walls, 15% gyroid, organic supports from the build plate, 5 mm brim, PETG.
+Every one came back `manifold = yes`, one part. PrusaSlicer's generic speeds
+put each at 15 to 18 hours, which is far slower than an H2D actually runs, so
+take the time from Bambu Studio and the grams from here.
 
-All four is most of a spool and the better part of two days. Print **660 and
+The small parts slice with no supports and no warnings: electrode holder
+3 g, sensor puck 2 g, pod base 15 g, pod lid 9 g, fit coupon 5 g.
+
+All four is a bit over half a spool. Print **660 and
 700 first**: they bracket the likeliest fit, and if one of them sits right
 the other two never need printing.
 

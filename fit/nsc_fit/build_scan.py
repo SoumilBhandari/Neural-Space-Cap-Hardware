@@ -16,10 +16,9 @@ import re
 import subprocess
 from pathlib import Path
 
-import numpy as np
 
 from . import head as head_mod
-from . import scad_export, scanned, stlclean, ten_twenty
+from . import meshcheck, scad_export, scanned, ten_twenty
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -54,35 +53,27 @@ def main(argv: list[str] | None = None) -> int:
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     label = args.label or f"{args.circumference:.0f}"
+    # Binary STL, not ASCII. OpenSCAD writes ASCII coordinates to six
+    # significant figures, which is enough to merge vertices that were
+    # distinct in memory and manufacture non-manifold edges on the way out.
     subprocess.run(
-        ["openscad", "-D", 'part="frame"', "-D", f'size_label="{label}"',
-         "-o", str(args.out), str(ROOT / "cad" / "cap_frame.scad")],
+        ["openscad", "--export-format", "binstl", "-D", 'part="frame"',
+         "-D", f'size_label="{label}"', "-o", str(args.out),
+         str(ROOT / "cad" / "cap_frame.scad")],
         check=True, capture_output=True,
     )
 
-    report = stlclean.clean(args.out)
-    tris, _ = stlclean._read(args.out)
-    extent = tris.reshape(-1, 3).max(0) - tris.reshape(-1, 3).min(0)
-    longest = max(extent[0], extent[1])
-
+    report = meshcheck.check(args.out)
+    extent = report.extent
     print(f"{args.out.name}: {extent[0]:.0f} x {extent[1]:.0f} x {extent[2]:.0f} mm")
     print(f"  hair allowance {(args.circumference - args.tape[0]) / 6.283:.1f} mm of thickness")
-    noise = {k: v for k, v in report.items() if k not in ("kept", "removed") and v}
-    if noise:
-        print("  cleaned: " + ", ".join(f"{v} {k.replace('_', ' ')}" for k, v in noise.items()))
-    # Solid volume by the divergence theorem, so the print estimate is the
-    # part's own material rather than its bounding box.
-    v = tris
-    volume = abs(float(np.sum(np.einsum("ij,ij->i", v[:, 0], np.cross(v[:, 1], v[:, 2]))))) / 6.0
-    print(f"  solid volume {volume / 1000:.0f} cm3  (~{volume / 1000 * 1.27:.0f} g PETG at 100%)")
-
-    for bed, name in ((220, "220 x 220"), (256, "256 x 256"), (325, "Bambu H2D 325 x 320")):
-        room = bed - longest
-        verdict = (
-            f"fits, {room:.0f} mm spare" if room >= 10
-            else "too tight" if room >= 0 else "does not fit"
-        )
-        print(f"  {name}: {verdict}")
+    print(f"  {report.triangles} triangles, {report.shells} shell, "
+          f"volume {report.volume_cm3:.0f} cm3 (~{report.volume_cm3 * 1.27:.0f} g PETG solid)")
+    print(f"  first layer {report.first_layer_mm2:.0f} mm2, "
+          f"{report.overhang_pct:.1f}% of surface overhangs past 45 deg")
+    print(f"  mesh: {report.verdict}")
+    if not report.printable:
+        raise SystemExit(f"refusing to hand over {args.out.name}: {report.verdict}")
     return 0
 
 

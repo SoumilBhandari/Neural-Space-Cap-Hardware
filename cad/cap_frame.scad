@@ -37,19 +37,6 @@ include <head_params.scad>
 
 part = "preview";   // "frame", "headform", "coupon", "preview"
 
-// Sacrificial feet for printing. The frame is a swept tube on a curved path,
-// so no part of it is flat: ring-down it meets the plate at one tangent point
-// with no first-layer area at all, and a brim has nothing to hold on to.
-// Snip the necks and sand the four stubs after printing.
-feet_on     = true;
-foot_pad_d  = 18;    // footprint on the plate
-foot_pad_h  = 3 * layer_h;   // three clean layers, no partial top
-// Six extrusion widths. 3.5 mm of PETG takes real force to cut and risks
-// marking the band; this is still far stronger than anything the print puts
-// on it, and flush cutters go through it in one squeeze.
-foot_neck_d = 6 * line_w;
-foot_neck_h = 3.0;
-
 // Printed into the pod pad. Four frames a few percent apart are impossible to
 // tell apart by eye once they are off the print bed.
 size_label = "";
@@ -113,19 +100,14 @@ module sweep(path, d) {
 // A raised socket standing on the surface normal, which the sprung electrode
 // holder press-fits into. mount is [name, position, rotation, phase_one].
 module electrode_socket(mount) {
-    translate(mount[1]) rotate(mount[2]) {
-        translate([0, 0, -socket_h / 2]) cylinder(d = boss_d, h = socket_h + 3);
-        // Index nub on the three sockets wired first, so whoever is fitting
-        // the cap can find them by feel instead of counting round from Cz.
-        // Phase-one sockets get a raised collar rather than a side nub.
-        // A nub on the side of the boss points in whatever direction the
-        // socket's local frame happens to face, which at Fpz and Cz is
-        // straight into a band — present in the model, invisible and
-        // unfeelable in the print. The collar extends along the socket axis,
-        // away from the skull, where no band ever reaches.
-        if (mount[3] == 1)
-            translate([0, 0, socket_h / 2 + 3]) cylinder(d = boss_d, h = collar_h);
-    }
+    // The three sockets wired first stand collar_h taller than the rest, so
+    // whoever is fitting the cap can find them by feel. One cylinder, not a
+    // boss with a second cylinder stacked on it: two solids meeting on a
+    // shared face are exactly the kind of contact that comes out of a union
+    // as coincident vertices and then reads as non-manifold in a slicer.
+    tall = socket_h + 3 + (mount[3] == 1 ? collar_h : 0);
+    translate(mount[1]) rotate(mount[2])
+        translate([0, 0, -socket_h / 2]) cylinder(d = boss_d, h = tall);
 }
 
 module electrode_bore(mount) {
@@ -161,11 +143,14 @@ module pod_pad() {
 // where it renders, exports, and cannot be seen or felt.
 module size_badge() {
     translate(pod_anchor[0]) rotate(pod_anchor[1])
-        translate([0, -pod_pad_w / 2 + 6, pod_pad_proud])
+        // Starts 0.4 mm inside the pad so the lettering overlaps it. Resting
+        // exactly on the face makes every glyph share a coplanar face with
+        // the pad, which is another source of coincident geometry.
+        translate([0, -pod_pad_w / 2 + 6, pod_pad_proud - 0.4])
             // The pad's local x runs along the band, so unrotated text reads
             // sideways to anyone holding the frame the right way up.
             rotate([0, 0, 90])
-                linear_extrude(1.2)
+                linear_extrude(1.6)
                     text(size_label, size = 6.5, halign = "center", valign = "center",
                          font = "Helvetica:style=Bold");
 }
@@ -180,11 +165,18 @@ module pod_pad_holes() {
 module frame_solid() {
     difference() {
         union() {
-            sweep(band_lateral, band_d);
-            sweep(band_sagittal, band_d);
-            sweep(band_coronal, band_d);
-            sweep(band_frontal, band_d);
-            sweep(band_parietal, band_d);
+            if (on_scan()) {
+                // One closed tube mesh per band, generated with the fit. The
+                // hull-chain sweep below shares a sphere between neighbouring
+                // hulls, and those coincident surfaces survive the union.
+                for (f = band_files) import(f, convexity = 10);
+            } else {
+                sweep(band_lateral, band_d);
+                sweep(band_sagittal, band_d);
+                sweep(band_coronal, band_d);
+                sweep(band_frontal, band_d);
+                sweep(band_parietal, band_d);
+            }
             for (m = mounts) electrode_socket(m);
             ppg_seat();
             pod_pad();
@@ -200,10 +192,10 @@ module frame_solid() {
         ppg_bore();
         pod_pad_holes();
 
-        // Trim anything hanging below the lowest band. On a scan this height
-        // comes from the bands themselves: scan coordinates are measured from
-        // a centre inside the skull, so the ellipsoid's fixed trim height cuts
-        // through the middle of the head and leaves the ring in fragments.
+        // Slice everything off flat at the build plate. On a scan this plane
+        // sits 3.8 mm below the ring's centreline, which leaves the ring a
+        // flat underside to print on all the way round and keeps every part
+        // of it within 45 degrees of vertical.
         translate([0, 0, -200 + (on_scan() ? scan_trim_z : trim_z)])
             cube([600, 600, 400], center = true);
     }
@@ -231,63 +223,34 @@ module head_form() {
     }
 }
 
-function floor_z() = on_scan() ? scan_trim_z : trim_z;
-
-// One foot: a wide pad tapering up to a thin neck that snaps off.
-//
-// The pad is deliberately built below the floor and cut flat by the same trim
-// plane the frame uses. Deriving a plate height from the ring instead leaves
-// the pads hanging in mid-air a few millimetres up, which is what the first
-// attempt did — the part still had zero first-layer area and would still have
-// failed, while looking like it had feet.
-module foot(point) {
-    pad_top = floor_z() + foot_pad_h;
-    translate([point[0], point[1], floor_z() - 5])
-        cylinder(d = foot_pad_d, h = 5 + foot_pad_h);
-    hull() {
-        translate([point[0], point[1], pad_top - 0.1]) cylinder(d = foot_pad_d, h = 0.1);
-        // Terminate on a ball centred on the band's own centreline rather
-        // than on a column stopping short of it. Where the band is swept
-        // about a centreline lying on the head — as it is without a scan —
-        // the hollowing cuts its lower half away, and a column reaching only
-        // to the centreline ends in the gap that leaves. The feet printed,
-        // looked right, and were not attached to anything.
-        translate(point) sphere(d = foot_neck_d);
-    }
-}
-
-module print_feet() {
-    difference() {
-        union() { for (f = feet) foot(f); }
-        translate([0, 0, -200 + floor_z()]) cube([600, 600, 400], center = true);
-    }
-}
-
 // A thumb-sized coupon carrying one electrode socket and one insert boss.
 // Print it in the corner of the plate first: it takes a few minutes and tells
 // you whether the cup electrode presses in and whether the heat-set insert
-// seats, before committing six hours to a frame built on the same numbers.
+// seats, before committing a whole frame print to the same numbers.
 module fit_coupon() {
+    // Everything starts on z = 0 so the whole coupon sits on the bed. The
+    // bosses used to be centred on the plate, which left the plate floating
+    // a few millimetres up.
+    plate_t = 4;
+    insert_boss_h = insert_h + floor_t;
     difference() {
         union() {
-            cube([46, 26, 4], center = true);
-            translate([-11, 0, 0]) cylinder(d = boss_d, h = socket_h + 2, center = true);
-            translate([13, 0, 0]) cylinder(d = insert_d + 2 * wall + 2, h = 6, center = true);
+            translate([0, 0, plate_t / 2]) cube([46, 26, plate_t], center = true);
+            translate([-11, 0, 0]) cylinder(d = boss_d, h = socket_h + 2);
+            translate([13, 0, 0]) cylinder(d = insert_d + 2 * wall + 2, h = insert_boss_h);
         }
-        translate([-11, 0, -10]) cylinder(d = socket_d, h = 30);
-        translate([13, 0, -1]) cylinder(d = insert_d, h = insert_h + 2);
+        translate([-11, 0, -1]) cylinder(d = socket_d, h = socket_h + 4);
+        // Blind from the top, the way the insert goes into the pod pad.
+        translate([13, 0, floor_t]) cylinder(d = insert_d, h = insert_h + 1);
         // Which numbers this coupon was cut with, so a drawer full of them
-        // stays meaningful.
-        translate([0, -9.5, 2]) linear_extrude(0.8)
+        // stays meaningful. Engraved three layers deep into the top face.
+        translate([0, -9.5, plate_t - 0.6]) linear_extrude(1)
             text(str(socket_d, "/", insert_d), size = 3.2, halign = "center",
                  valign = "center", font = "Helvetica:style=Bold");
     }
 }
 
-// Feet exist only on a scan build. The reference ellipsoid frame has its
-// bands swept about centrelines lying on the surface, so hollowing cuts away
-// the lower half and a neck thin enough to snap cannot reach what is left.
-if (part == "frame") { frame_solid(); if (feet_on && !is_undef(feet)) print_feet(); }
+if (part == "frame") frame_solid();
 else if (part == "coupon") fit_coupon();
 else if (part == "headform") head_form();
 else {

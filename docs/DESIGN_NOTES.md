@@ -195,6 +195,43 @@ as five pieces and buried the only question that matters — whether the frame
 itself is in one piece. Sinking the pad removed the cause, and
 `nsc_fit.stlclean` drops any that remain.
 
+## The frame printed in OpenSCAD and failed in the slicer
+
+The first STLs went into a slicer and came back with warnings about non-manifold edges and
+overhangs. OpenSCAD had reported every one of those meshes as a valid
+manifold, and it was right about the mesh it held in memory.
+
+An STL has no shared vertices. It is a list of loose triangles, and the
+slicer rebuilds the surface by welding corners that sit at the same position.
+The frame had 89,764 vertices and 45,689 of them sat exactly on top of
+another one. In memory those were separate surfaces passing through each
+other's corners. After welding they were edges with four triangles on them.
+
+Cutting the build down one piece at a time found the source: the doubling
+only appeared once the scanned head was subtracted. The head mesh had a
+signed volume of minus 4648 cm³. It was inside out. A boolean engine will
+still subtract an inverted solid, and what comes back looks correct on
+screen and is wrong everywhere the two surfaces met.
+
+Flipping the winding took the doubled vertices from 45,689 to 49. The last
+49 were all one kind of mistake, two features meeting exactly: bands of equal
+diameter crossing, a collar starting on the plane its boss ended on, the size
+badge starting on the pad face. Each band is now a single tube mesh with its
+own radius, the boss is one cylinder, and the badge starts 0.4 mm inside the
+pad.
+
+The overhang half was the print feet. They held the ring off the bed, so the
+whole ring was a bridge between eight pads. The ring is now planar with its
+underside cut flat, which is a better first layer than the feet were and
+needs nothing removed afterwards. Overhang past 45 degrees went from 16% of
+the surface to about 10%, and what is left is the underside of the arches
+near the crown, which a dome printed ring-down will always have.
+
+What changed in the process matters more than the fix. The build now checks
+the exported file the way a slicer reads it, welded by position, and stops if
+it is not one closed shell. Every size and every small part is then sliced
+before it is handed to anyone.
+
 ## Splitting the frame is not solved
 
 The frame is 172 x 202 x 128 mm, which fits a 220 mm bed but not every printer,
@@ -230,7 +267,7 @@ the cheapest thing to try next.
 - **Cable routing is not designed.** The pod has a gland and the holders have
   slots, but the path between them across the cap is not planned. Every wire
   that failed last semester failed where it left a connector unsupported.
-- **Frame stiffness is untested.** An 11 mm swept band in PETG should be stiff
+- **Frame stiffness is untested.** A 10 to 11 mm swept band in PETG should be stiff
   enough for a ring braced by two arches, but nobody has worn one. If it flexes,
   the cheap fix is a wider band before a thicker one.
 - **The frame and the sprung holder mount differently.** The holder has a sewn

@@ -7,6 +7,9 @@ NI      ?= 350
 PA      ?= 340
 
 SCAD    = openscad
+## Binary STL: ASCII rounds coordinates to six digits, which is enough to
+## pull welded vertices apart and make a slicer report open edges.
+STL     = $(SCAD) --export-format binstl
 BLENDER = /Applications/Blender.app/Contents/MacOS/Blender
 BUILD   = build
 
@@ -26,26 +29,26 @@ parts: $(BUILD)/cap_frame.stl $(BUILD)/electrode_holder.stl $(BUILD)/sensor_puck
 
 ## The frame is generated from the fitted head, so it depends on the fit.
 $(BUILD)/cap_frame.stl: cad/cap_frame.scad cad/head_params.scad cad/params.scad
-	$(SCAD) -D 'part="frame"' -o $@ $<
+	$(STL) -D 'part="frame"' -o $@ $<
 
 ## A hollow form of the same head, for dry-fitting without booking a person.
 headform: cad/head_params.scad
-	$(SCAD) -D 'part="headform"' -o $(BUILD)/head_form.stl cad/cap_frame.scad
+	$(STL) -D 'part="headform"' -o $(BUILD)/head_form.stl cad/cap_frame.scad
 
 cad/head_params.scad:
 	$(MAKE) fit
 
 $(BUILD)/electrode_holder.stl: cad/electrode_holder.scad cad/params.scad
-	$(SCAD) -o $@ $<
+	$(STL) -o $@ $<
 
 $(BUILD)/sensor_puck.stl: cad/sensor_puck.scad cad/params.scad
-	$(SCAD) -o $@ $<
+	$(STL) -o $@ $<
 
 $(BUILD)/pod_base.stl: cad/electronics_pod.scad cad/params.scad
-	$(SCAD) -D 'part="base"' -o $@ $<
+	$(STL) -D 'part="base"' -o $@ $<
 
 $(BUILD)/pod_lid.stl: cad/electronics_pod.scad cad/params.scad
-	$(SCAD) -D 'part="lid"' -o $@ $<
+	$(STL) -D 'part="lid"' -o $@ $<
 
 ## Preview renders for the poster and for checking a part before slicing.
 preview:
@@ -156,5 +159,5 @@ scan-sizes:
 ## Thumb-sized test piece: one electrode socket, one insert boss, cut with the
 ## same numbers as the frame. Print it before committing hours to a frame.
 coupon:
-	$(SCAD) -D 'part="coupon"' -o $(BUILD)/fit_coupon.stl cad/cap_frame.scad
+	$(STL) -D 'part="coupon"' -o $(BUILD)/fit_coupon.stl cad/cap_frame.scad
 	@echo "print $(BUILD)/fit_coupon.stl first — five minutes, saves a frame"
