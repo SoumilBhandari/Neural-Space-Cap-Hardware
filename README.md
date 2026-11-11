@@ -158,7 +158,7 @@ and no measurement predicts it. So the answer is not to measure harder:
 | 740 mm | 26.3 mm | 243 × 254 mm | 154 g |
 
 Same head, four hair allowances. Print **660 and 700** first — they bracket the
-likeliest fit. Each carries its circumference raised on the pod pad so they stay
+likeliest fit. Each carries its circumference engraved on the pod pad so they stay
 tellable apart off the plate.
 
 ---

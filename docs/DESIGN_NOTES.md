@@ -227,6 +227,15 @@ needs nothing removed afterwards. Overhang past 45 degrees went from 16% of
 the surface to about 10%, and what is left is the underside of the arches
 near the crown, which a dome printed ring-down will always have.
 
+One notice survived all of that. PrusaSlicer's tree supports reported a lost
+branch on three of the four sizes. Cutting the frame into boxes and slicing
+each one walked it down to the back pad, and slicing a frame with no size
+number made it go away. The number stood 1.2 mm proud of a face tilted 62
+degrees, so every stroke of every digit was a tiny overhang with nowhere for
+a support to land. It is engraved two layers deep now, and sized to fit the
+strip of pad between its edge and the band, where before it ran off one side
+and under the band on the other. All four sizes slice with nothing reported.
+
 What changed in the process matters more than the fix. The build now checks
 the exported file the way a slicer reads it, welded by position, and stops if
 it is not one closed shell. Every size and every small part is then sliced

@@ -69,6 +69,8 @@ pod_pad_t   = 5;
 // skull is lever arm for the pod's mass against the back of her neck.
 pod_pad_sink  = 4.0;
 pod_pad_proud = 1.5;
+badge_depth   = 2 * layer_h;
+badge_size    = 4.0;
 
 // The volume the frame is hollowed against.
 //
@@ -135,7 +137,7 @@ module pod_pad() {
                 offset(4) square([pod_pad_l - 8, pod_pad_w - 8], center = true);
 }
 
-// Raised lettering on the outside of the pod pad.
+// Size lettering cut into the outside of the pod pad.
 //
 // The pad is extruded from -pod_pad_t/2 through pod_pad_t + 2, so its outer
 // face sits at +pod_pad_t/2 + 2. Starting the text at pod_pad_t/2 — the
@@ -143,15 +145,23 @@ module pod_pad() {
 // where it renders, exports, and cannot be seen or felt.
 module size_badge() {
     translate(pod_anchor[0]) rotate(pod_anchor[1])
-        // Starts 0.4 mm inside the pad so the lettering overlaps it. Resting
-        // exactly on the face makes every glyph share a coplanar face with
-        // the pad, which is another source of coincident geometry.
-        translate([0, -pod_pad_w / 2 + 6, pod_pad_proud - 0.4])
+        // Engraved, two layers deep. It used to stand 1.2 mm proud, and on a
+        // face tilted 62 degrees every stroke of every digit had its own
+        // little overhang. The slicer grew a support tip for them, could not
+        // route it down past the pad, and reported a lost branch. A cut this
+        // shallow needs no support at all.
+        //
+        // The cutter starts badge_depth inside the face and runs out past
+        // it, so it never ends on the face itself.
+        // Centred in the strip of pad left clear between its edge and the
+        // sagittal band, and sized to fit there. At 6.5 mm the number ran
+        // off the edge on one side and under the band on the other.
+        translate([0, -(pod_pad_w / 2 + band_d / 2) / 2, pod_pad_proud - badge_depth])
             // The pad's local x runs along the band, so unrotated text reads
             // sideways to anyone holding the frame the right way up.
             rotate([0, 0, 90])
-                linear_extrude(1.6)
-                    text(size_label, size = 6.5, halign = "center", valign = "center",
+                linear_extrude(badge_depth + 1)
+                    text(size_label, size = badge_size, halign = "center", valign = "center",
                          font = "Helvetica:style=Bold");
 }
 
@@ -180,7 +190,6 @@ module frame_solid() {
             for (m = mounts) electrode_socket(m);
             ppg_seat();
             pod_pad();
-            if (size_label != "") size_badge();
         }
 
         // Hollow the inside to the head. On a scan the liner gap is already
@@ -191,6 +200,7 @@ module frame_solid() {
         for (m = mounts) electrode_bore(m);
         ppg_bore();
         pod_pad_holes();
+        if (size_label != "") size_badge();
 
         // Slice everything off flat at the build plate. On a scan this plane
         // sits 3.8 mm below the ring's centreline, which leaves the ring a

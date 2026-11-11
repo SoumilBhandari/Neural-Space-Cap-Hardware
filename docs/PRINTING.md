@@ -110,6 +110,7 @@ size is dimensioned as a whole multiple of extrusion width or layer height:
 | holder flexure | 0.84 mm = 2 lines | asking for 0.80 gets 0.84 anyway, and stiffness goes as thickness cubed — the spring would have come out 16% firmer than calculated |
 | ring flat | 3.8 mm = 19 layers | cut on a layer boundary so the first layer is a full-width track |
 | coupon engraving | 0.6 mm = 3 layers | no partial layer at the bottom of the text |
+| size number on the pad | 0.4 mm = 2 layers deep | shallow enough to need no support on a tilted face |
 
 If you change nozzle or layer height, change `nozzle_d`, `line_w` and
 `layer_h` at the top of `cad/params.scad` and those features follow.
@@ -131,7 +132,7 @@ the bed. If the slicer auto-orients a part, undo that.
 
 The last column is a real slice of each file: PrusaSlicer, 0.2 mm layers,
 4 walls, 15% gyroid, organic supports from the build plate, 5 mm brim, PETG.
-Every one came back `manifold = yes`, one part. PrusaSlicer's generic speeds
+Every one came back `manifold = yes`, one part, with no warnings. PrusaSlicer's generic speeds
 put each at 15 to 18 hours, which is far slower than an H2D actually runs, so
 take the time from Bambu Studio and the grams from here.
 
