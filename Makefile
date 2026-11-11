@@ -152,7 +152,7 @@ scan-sizes:
 	@for c in $(SCAN_SIZES); do \
 	  (cd fit && python3 -m nsc_fit.build_scan --scan ../$(SCAN) --circumference $$c \
 	      --gap $(SCAN_GAP) --tape $(CIRC) $(NI) $(PA) \
-	      --out ../$(BUILD)/scan_sizes/frame_$$c.stl) || exit 1; \
+	      --on-bed --out ../$(BUILD)/scan_sizes/frame_$$c.stl) || exit 1; \
 	done
 	@echo "size run in $(BUILD)/scan_sizes/"
 

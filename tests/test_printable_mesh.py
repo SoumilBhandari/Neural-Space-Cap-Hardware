@@ -67,3 +67,19 @@ def test_small_parts_print_flat_without_support(tmp_path, source, defines):
     assert report.printable, report.verdict
     assert report.first_layer_mm2 > 100
     assert report.overhang_pct < 2.0
+
+
+def test_placing_on_the_bed_keeps_the_mesh_welded(tmp_path):
+    """Shifting a part must not pull apart corners that shared a position."""
+    from nsc_fit import stlclean
+
+    angle = np.linspace(0, 2 * np.pi, 60, endpoint=False)
+    path = np.column_stack([80.3 * np.cos(angle), 80.3 * np.sin(angle), 17.89 + 0 * angle])
+    verts, faces = scad_export.tube_mesh(path, 5.0, closed=True)
+    out = scad_export.write_binary_stl(tmp_path / "ring.stl", verts, faces)
+    before = meshcheck.check(out)
+
+    after = meshcheck.check(stlclean.place_on_bed(out))
+    assert after.printable, after.verdict
+    assert after.volume_cm3 == pytest.approx(before.volume_cm3, rel=1e-4)
+    assert np.allclose(after.extent, before.extent, atol=1e-3)

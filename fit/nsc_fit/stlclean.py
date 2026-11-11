@@ -160,6 +160,26 @@ def largest_shell(path: str | Path) -> tuple[int, int]:
     return len(counts), int((~keep).sum())
 
 
+def place_on_bed(path: str | Path) -> Path:
+    """Move a part so it rests on z = 0, centred on the origin in x and y.
+
+    The frame is modelled in the head's own coordinates, which puts its flat
+    ring some way above zero. Slicers usually drop a part to the plate on
+    import, but a file that already sits there cannot be loaded floating.
+
+    The shift is done in float32, the precision the file is stored in, so two
+    corners that were at the same position still are afterwards and the mesh
+    stays welded.
+    """
+    tris, normals = _read(path)
+    tris = tris.astype(np.float32)
+    points = tris.reshape(-1, 3)
+    low, high = points.min(axis=0), points.max(axis=0)
+    shift = np.array([(low[0] + high[0]) / 2, (low[1] + high[1]) / 2, low[2]], dtype=np.float32)
+    _write(path, tris - shift, normals)
+    return Path(path)
+
+
 def _read(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
     raw = Path(path).read_bytes()
     if raw[:5] == b"solid" and b"facet" in raw[:2048]:

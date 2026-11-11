@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 from . import head as head_mod
-from . import meshcheck, scad_export, scanned, ten_twenty
+from . import meshcheck, scad_export, scanned, stlclean, ten_twenty
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -33,6 +33,9 @@ def main(argv: list[str] | None = None) -> int:
                         metavar=("CIRC", "NI", "PA"))
     parser.add_argument("--out", type=Path, default=ROOT / "build" / "cap_frame.stl")
     parser.add_argument("--label", default="")
+    parser.add_argument("--on-bed", action="store_true",
+                        help="rest the exported frame on z = 0 for the slicer; "
+                             "leave off when it has to line up with the head form")
     args = parser.parse_args(argv)
 
     scan = scanned.load(args.scan).scaled_to(args.circumference)
@@ -62,6 +65,9 @@ def main(argv: list[str] | None = None) -> int:
          str(ROOT / "cad" / "cap_frame.scad")],
         check=True, capture_output=True,
     )
+
+    if args.on_bed:
+        stlclean.place_on_bed(args.out)
 
     report = meshcheck.check(args.out)
     extent = report.extent
