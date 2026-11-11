@@ -244,8 +244,9 @@ module fit_coupon() {
         translate([13, 0, floor_t]) cylinder(d = insert_d, h = insert_h + 1);
         // Which numbers this coupon was cut with, so a drawer full of them
         // stays meaningful. Engraved three layers deep into the top face.
-        translate([0, -9.5, plate_t - 0.6]) linear_extrude(1)
-            text(str(socket_d, "/", insert_d), size = 3.2, halign = "center",
+        // Kept to the insert end of the plate, clear of the socket boss.
+        translate([11, -9.5, plate_t - 0.6]) linear_extrude(1)
+            text(str(socket_d, "/", insert_d), size = 3.0, halign = "center",
                  valign = "center", font = "Helvetica:style=Bold");
     }
 }
